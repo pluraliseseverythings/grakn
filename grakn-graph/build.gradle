@@ -1,0 +1,19 @@
+
+description = ''
+dependencies {
+  compile project(':grakn-core')
+    compile group: 'org.sharegov', name: 'mjson', version:'1.4.0'
+    compile(group: 'org.apache.tinkerpop', name: 'spark-gremlin', version:'3.1.1-incubating') {
+exclude(module: 'javax.servlet-api')
+exclude(module: 'jackson-annotations')
+exclude(module: 'jackson-core')
+exclude(module: 'jackson-databind')
+    }
+    compile(group: 'org.apache.tinkerpop', name: 'hadoop-gremlin', version:'3.1.1-incubating') {
+exclude(module: 'javax.servlet-api')
+exclude(module: 'jackson-core')
+exclude(module: 'jackson-databind')
+    }
+    compile group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version:'2.8.5'
+    compile group: 'com.fasterxml.jackson.module', name: 'jackson-module-scala_2.10', version:'2.8.5'
+}

@@ -1,5 +1,11 @@
 grammar GraqlTemplate;
 
+
+@header {
+package  ai.grakn.graql.internal.antlr;
+}
+
+
 template
  : blockContents EOF
  ;

@@ -1,0 +1,6 @@
+
+description = ''
+dependencies {
+    compile group: 'org.sharegov', name: 'mjson', version:'1.4.0'
+  compile project(':grakn-migration:migration-base')
+}

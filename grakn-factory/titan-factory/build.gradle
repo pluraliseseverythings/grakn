@@ -1,0 +1,65 @@
+
+description = ''
+dependencies {
+  compile project(':grakn-graph')
+    compile(group: 'com.thinkaurelius.titan', name: 'titan-es', version:'1.1.0.grakn-SNAPSHOT') {
+exclude(module: 'slf4j-log4j12')
+exclude(module: 'slf4j-api')
+exclude(module: 'javax.servlet-api')
+exclude(module: 'servlet-api')
+exclude(module: 'servlet-api-2.5')
+exclude(module: 'metrics-core')
+exclude(module: 'metrics-graphite')
+exclude(module: 'commons-logging')
+    }
+    compile(group: 'com.thinkaurelius.titan', name: 'titan-cassandra', version:'1.1.0.grakn-SNAPSHOT') {
+exclude(module: 'slf4j-log4j12')
+exclude(module: 'slf4j-api')
+exclude(module: 'javax.servlet-api')
+exclude(module: 'servlet-api')
+exclude(module: 'servlet-api-2.5')
+exclude(module: 'high-scale-lib')
+exclude(module: 'metrics-core')
+exclude(module: 'logback-classic')
+exclude(module: 'org.apache.servicemix.bundles.commons-csv')
+    }
+    compile(group: 'org.apache.tinkerpop', name: 'hadoop-gremlin', version:'3.1.1-grakn-SNAPSHOT') {
+exclude(module: 'spark-core_2.10')
+exclude(module: 'javax.servlet-api')
+exclude(module: 'slf4j-log4j12')
+exclude(module: 'jcl-over-slf4j')
+exclude(module: 'log4j')
+exclude(module: 'jersey-client')
+exclude(module: 'jetty-util')
+exclude(module: 'commons-logging')
+    }
+    compile group: 'org.slf4j', name: 'jcl-over-slf4j', version:'1.7.20'
+    compile group: 'org.slf4j', name: 'log4j-over-slf4j', version:'1.7.20'
+    compile group: 'org.slf4j', name: 'slf4j-nop', version:'1.7.20'
+    compile(group: 'org.apache.spark', name: 'spark-core_2.10', version:'1.5.2') {
+exclude(module: 'javax.servlet-api')
+exclude(module: 'slf4j-log4j12')
+exclude(module: 'slf4j-api')
+exclude(module: 'jcl-over-slf4j')
+exclude(module: 'log4j')
+    }
+    compile(group: 'com.thinkaurelius.titan', name: 'titan-hadoop', version:'1.1.0.grakn-SNAPSHOT') {
+exclude(module: 'slf4j-log4j12')
+exclude(module: 'slf4j-api')
+exclude(module: 'log4j')
+    }
+    compile(group: 'org.apache.cassandra', name: 'cassandra-all', version:'2.1.17') {
+exclude(module: 'fastutil')
+exclude(module: 'logback-core')
+exclude(module: 'logback-classic')
+    }
+  testCompile project(':grakn-test-tools')
+    testCompile(group: 'org.cassandraunit', name: 'cassandra-unit', version:'2.1.9.2') {
+exclude(module: 'slf4j-api')
+    }
+}
+
+tasks.withType(Test) {
+    scanForTestClasses = false
+    include "**/*Test.class" // whatever Ant pattern matches your test class files
+}

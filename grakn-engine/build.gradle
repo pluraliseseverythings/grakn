@@ -1,0 +1,38 @@
+
+description = ''
+dependencies {
+    compile(group: 'net.greghaines', name: 'jesque', version:'2.1.2') {
+exclude(module: 'slf4j-api')
+    }
+    compile group: 'com.auth0', name: 'java-jwt', version:'2.2.1'
+  compile project(':grakn-test-profiles:grakn-graql')
+    compile group: 'com.fasterxml.jackson.core', name: 'jackson-core', version:'2.8.5'
+    compile group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version:'2.8.5'
+    compile group: 'io.netty', name: 'netty-all', version:'4.0.42.Final'
+  compile project(':grakn-graph')
+    compile(group: 'io.dropwizard.metrics', name: 'metrics-servlets', version:'3.2.2') {
+exclude(module: 'jackson-databind')
+exclude(module: 'jackson-core')
+exclude(module: 'slf4j-api')
+    }
+    compile group: 'io.prometheus', name: 'simpleclient', version:'0.0.13'
+    compile group: 'io.prometheus', name: 'simpleclient_servlet', version:'0.0.13'
+    compile group: 'io.prometheus', name: 'simpleclient_dropwizard', version:'0.0.13'
+    compile(group: 'com.sparkjava', name: 'spark-core', version:'2.5.1') {
+exclude(module: 'slf4j-api')
+    }
+    compile(group: 'io.swagger', name: 'swagger-jersey2-jaxrs', version:'1.5.8') {
+exclude(module: 'jackson-annotations')
+exclude(module: 'joda-time')
+exclude(module: 'jackson-datatype-joda')
+    }
+    compile group: 'org.sharegov', name: 'mjson', version:'1.4.0'
+    compile(group: 'io.dropwizard.metrics', name: 'metrics-core', version:'3.2.2') {
+exclude(module: 'slf4j-api')
+    }
+    compile group: 'redis.clients', name: 'jedis', version:'2.9.0'
+    compile group: 'com.github.rholder', name: 'guava-retrying', version:'2.0.0'
+    testCompile group: 'com.jayway.restassured', name: 'rest-assured', version:'2.7.0'
+    testCompile group: 'com.github.stefanbirkner', name: 'system-rules', version:'1.16.0'
+    testCompile group: 'jline', name: 'jline', version:'2.12'
+}

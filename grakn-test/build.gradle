@@ -1,0 +1,24 @@
+
+description = ''
+dependencies {
+  compile project(':grakn-core')
+  compile project(':grakn-test-profiles:grakn-graql')
+  compile project(':grakn-client')
+  compile project(':grakn-test-profiles:grakn-engine')
+    compile group: 'com.jayway.restassured', name: 'rest-assured', version:'2.7.0'
+    compile group: 'net.lingala.zip4j', name: 'zip4j', version:'1.3.2'
+  testCompile project(':grakn-graql-shell')
+    testCompile group: 'commons-collections', name: 'commons-collections', version:'3.2.1'
+    testCompile group: 'org.apache.commons', name: 'commons-csv', version:'1.3'
+  testCompile project(':grakn-migration:migration-sql')
+    testCompile group: 'com.h2database', name: 'h2', version:'1.4.192'
+  testCompile project(':grakn-migration:migration-csv')
+  testCompile project(':grakn-migration:migration-owl')
+  testCompile project(':grakn-migration:migration-json')
+  testCompile project(':grakn-migration:migration-export')
+  testCompile project(':grakn-migration:migration-base')
+  testCompile project(':grakn-migration:migration-xml')
+    testCompile group: 'net.sourceforge.owlapi', name: 'org.semanticweb.hermit', version:'1.3.8.500'
+    testCompile group: 'com.github.stefanbirkner', name: 'system-rules', version:'1.16.0'
+  testCompile project(':grakn-factory:titan-factory')
+}

@@ -1,0 +1,17 @@
+
+description = ''
+dependencies {
+  compile project(':grakn-test-profiles:grakn-engine')
+  compile project(':grakn-graql-shell')
+  compile project(':grakn-migration:migration-sql')
+  compile project(':grakn-migration:migration-xml')
+  compile project(':grakn-migration:migration-csv')
+  compile project(':grakn-migration:migration-json')
+  compile project(':grakn-migration:migration-owl')
+  compile project(':grakn-migration:migration-export')
+  compile project(':grakn-factory:titan-factory')
+    compile(group: 'io.airlift', name: 'airline', version:'0.6') {
+exclude(module: 'guava')
+    }
+}
+

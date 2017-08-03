@@ -1,0 +1,44 @@
+rootProject.name = 'grakn'
+include ':grakn-graph'
+include ':grakn-test-profiles:grakn-graql'
+include ':grakn-graql-shell'
+include ':grakn-test-profiles:grakn-engine'
+include ':grakn-dashboard'
+include ':grakn-migration:migration-owl'
+include ':grakn-migration:migration-csv'
+include ':grakn-migration:migration-json'
+include ':grakn-migration:migration-base'
+include ':grakn-migration:migration-export'
+include ':grakn-migration:migration-sql'
+include ':grakn-migration:migration-xml'
+include ':grakn-migration'
+include ':grakn-test-profiles:grakn-dist'
+include ':grakn-test-profiles:grakn-test'
+include ':grakn-core'
+include ':grakn-test-profiles'
+include ':grakn-factory:titan-factory'
+include ':grakn-factory'
+include ':grakn-client'
+include ':grakn-test-tools'
+
+project(':grakn-graph').projectDir = "$rootDir/grakn-graph" as File
+project(':grakn-test-profiles:grakn-graql').projectDir = "$rootDir/grakn-graql" as File
+project(':grakn-graql-shell').projectDir = "$rootDir/grakn-graql-shell" as File
+project(':grakn-test-profiles:grakn-engine').projectDir = "$rootDir/grakn-engine" as File
+project(':grakn-dashboard').projectDir = "$rootDir/grakn-dashboard" as File
+project(':grakn-migration:migration-owl').projectDir = "$rootDir/grakn-migration/owl" as File
+project(':grakn-migration:migration-csv').projectDir = "$rootDir/grakn-migration/csv" as File
+project(':grakn-migration:migration-json').projectDir = "$rootDir/grakn-migration/json" as File
+project(':grakn-migration:migration-base').projectDir = "$rootDir/grakn-migration/base" as File
+project(':grakn-migration:migration-export').projectDir = "$rootDir/grakn-migration/export" as File
+project(':grakn-migration:migration-sql').projectDir = "$rootDir/grakn-migration/sql" as File
+project(':grakn-migration:migration-xml').projectDir = "$rootDir/grakn-migration/xml" as File
+project(':grakn-migration').projectDir = "$rootDir/grakn-migration" as File
+project(':grakn-test-profiles:grakn-dist').projectDir = "$rootDir/grakn-dist" as File
+project(':grakn-test-profiles:grakn-test').projectDir = "$rootDir/grakn-test" as File
+project(':grakn-core').projectDir = "$rootDir/grakn-core" as File
+project(':grakn-test-profiles').projectDir = "$rootDir/grakn-test-profiles" as File
+project(':grakn-factory:titan-factory').projectDir = "$rootDir/grakn-factory/titan-factory" as File
+project(':grakn-factory').projectDir = "$rootDir/grakn-factory" as File
+project(':grakn-client').projectDir = "$rootDir/grakn-client" as File
+project(':grakn-test-tools').projectDir = "$rootDir/grakn-test-tools" as File

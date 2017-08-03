@@ -1,5 +1,9 @@
 grammar Graql;
 
+@header {
+package  ai.grakn.graql.internal.antlr;
+}
+
 queryList : queryListElem* ;
 
 // This rule exists so query lists never parse "match...insert" style queries,

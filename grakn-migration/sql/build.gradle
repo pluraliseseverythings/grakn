@@ -1,0 +1,6 @@
+
+description = ''
+dependencies {
+  compile project(':grakn-migration:migration-base')
+    compile group: 'org.jooq', name: 'jooq', version:'3.8.5'
+}

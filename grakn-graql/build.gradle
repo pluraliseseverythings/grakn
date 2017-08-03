@@ -1,0 +1,23 @@
+apply plugin: 'antlr'
+
+repositories {
+  mavenCentral()
+}
+
+description = ''
+dependencies {
+    antlr "org.antlr:antlr4:4.5.3"
+
+    compile project(':grakn-core')
+    compile group: 'org.antlr', name: 'antlr4-runtime', version:'4.5'
+    compile group: 'org.sharegov', name: 'mjson', version:'1.4.0'
+    compile group: 'org.javatuples', name: 'javatuples', version:'1.2'
+    compile group: 'com.theoryinpractise', name: 'halbuilder-standard', version:'4.0.1'
+}
+
+
+generateGrammarSource {
+  maxHeapSize = "64m"
+  arguments += ["-visitor", "-long-messages"]
+}
+

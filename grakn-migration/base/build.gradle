@@ -1,0 +1,6 @@
+
+description = ''
+dependencies {
+    compile group: 'commons-cli', name: 'commons-cli', version:'1.3'
+  compile project(':grakn-client')
+}
