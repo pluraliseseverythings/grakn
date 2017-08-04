@@ -9,7 +9,8 @@ exclude(module: 'slf4j-api')
     compile group: 'com.fasterxml.jackson.core', name: 'jackson-core', version:'2.8.5'
     compile group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version:'2.8.5'
     compile group: 'io.netty', name: 'netty-all', version:'4.0.42.Final'
-  compile project(':grakn-graph')
+    compile project(':grakn-graph')
+    compile project(':grakn-test-tools')
     compile(group: 'io.dropwizard.metrics', name: 'metrics-servlets', version:'3.2.2') {
 exclude(module: 'jackson-databind')
 exclude(module: 'jackson-core')
