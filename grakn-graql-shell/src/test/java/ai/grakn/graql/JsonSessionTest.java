@@ -19,7 +19,7 @@
 
 package ai.grakn.graql;
 
-import ai.grakn.Grakn;
+import ai.grakn.util.Constants;
 import static ai.grakn.util.REST.RemoteShell.ACTION;
 import static ai.grakn.util.REST.RemoteShell.ACTION_END;
 import java.io.EOFException;

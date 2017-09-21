@@ -14,34 +14,42 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with Grakn. If not, see <http://www.gnu.org/licenses/gpl.txt>.
+ *
  */
-package ai.grakn.test;
+package ai.grakn.client;
 
 import ai.grakn.engine.GraknEngineConfig;
+import ai.grakn.engine.GraknEngineServer;
+import ai.grakn.util.MockRedisRule;
 import ai.grakn.util.TestUtil;
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.MatcherAssert.assertThat;
+import org.junit.BeforeClass;
+import org.junit.ClassRule;
+import org.junit.Test;
 
-/**
- * <p>
- *     Sets up a test grakn engine
- * </p>
- *
- * <p>
- *     Sets up a grakn engine for testing purposes.
- * </p>
- * 
- * @author borislav
- *
- */
-public abstract class EngineTestUtil {
+class GraknClientTest {
+    private static GraknEngineServer server;
 
-    /**
-     * Create a configuration for use in tests, using random ports.
-     */
-    static GraknEngineConfig createTestConfig() {
+    @ClassRule
+    public static MockRedisRule mockRedisRule = new MockRedisRule();
+
+    @BeforeClass
+    static void beforeClass() {
         GraknEngineConfig config = GraknEngineConfig.create();
         Integer serverPort = TestUtil.getEphemeralPort();
         config.setConfigProperty(GraknEngineConfig.SERVER_PORT_NUMBER, String.valueOf(serverPort));
-        return config;
+        server = GraknEngineServer.create(config);
+        server.start();
+    }
+
+    @Test
+    public void whenRequestingConfiguration_ReturnOk() {
+        assertThat(true, equalTo(true));
+    }
+
+    @Test
+    public void whenTasksPost_ReturnOk() {
     }
 
 }

@@ -18,16 +18,15 @@
 
 package ai.grakn.client;
 
-import ai.grakn.Grakn;
 import ai.grakn.GraknTx;
 import ai.grakn.GraknTxType;
 import ai.grakn.engine.SystemKeyspace;
 import ai.grakn.test.EngineContext;
-import org.junit.Test;
-
+import ai.grakn.util.Constants;
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import org.junit.Test;
 
 public class ClientTest {
 

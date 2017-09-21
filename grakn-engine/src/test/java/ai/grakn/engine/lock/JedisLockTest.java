@@ -1,5 +1,6 @@
 package ai.grakn.engine.lock;
 
+import ai.grakn.util.Constants;
 import ai.grakn.util.EmbeddedRedis;
 import com.google.common.base.Stopwatch;
 import java.util.concurrent.TimeUnit;

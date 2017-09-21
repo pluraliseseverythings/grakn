@@ -19,20 +19,18 @@
 
 package ai.grakn.graql;
 
-import ai.grakn.Grakn;
 import ai.grakn.Keyspace;
 import ai.grakn.client.BatchMutatorClient;
+import ai.grakn.util.Constants;
+import static ai.grakn.util.REST.RemoteShell.ACTION;
+import static ai.grakn.util.REST.RemoteShell.ACTION_END;
+import java.io.IOException;
+import java.net.URI;
+import java.util.concurrent.CompletableFuture;
 import mjson.Json;
 import org.eclipse.jetty.websocket.api.Session;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.io.IOException;
-import java.net.URI;
-import java.util.concurrent.CompletableFuture;
-
-import static ai.grakn.util.REST.RemoteShell.ACTION;
-import static ai.grakn.util.REST.RemoteShell.ACTION_END;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;

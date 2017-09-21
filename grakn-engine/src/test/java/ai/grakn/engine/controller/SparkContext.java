@@ -21,18 +21,17 @@ package ai.grakn.engine.controller;
 
 import ai.grakn.engine.EngineTestHelper;
 import ai.grakn.engine.GraknEngineConfig;
+import static ai.grakn.engine.GraknEngineConfig.JWT_SECRET_PROPERTY;
+import static ai.grakn.engine.GraknEngineServer.configureSpark;
 import ai.grakn.engine.util.JWTHandler;
+import ai.grakn.util.Constants;
 import com.jayway.restassured.RestAssured;
 import com.jayway.restassured.builder.RequestSpecBuilder;
-import org.junit.rules.ExternalResource;
-import spark.Service;
-
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-
-import static ai.grakn.engine.GraknEngineConfig.JWT_SECRET_PROPERTY;
-import static ai.grakn.engine.GraknEngineServer.configureSpark;
+import org.junit.rules.ExternalResource;
+import spark.Service;
 
 /**
  * Context that starts spark

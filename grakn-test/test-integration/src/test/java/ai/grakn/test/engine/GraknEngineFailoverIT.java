@@ -35,6 +35,7 @@ import ai.grakn.redisq.RedisqBuilder;
 import ai.grakn.test.DistributionContext;
 import ai.grakn.test.engine.tasks.BackgroundTaskTestUtils;
 import static ai.grakn.test.engine.tasks.BackgroundTaskTestUtils.configuration;
+import ai.grakn.util.Constants;
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;

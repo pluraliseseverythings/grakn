@@ -34,6 +34,7 @@ import ai.grakn.engine.tasks.mock.ShortExecutionMockTask;
 import ai.grakn.engine.util.EngineID;
 import ai.grakn.redisq.exceptions.StateFutureInitializationException;
 import ai.grakn.test.SampleKBContext;
+import ai.grakn.util.Constants;
 import ai.grakn.util.EmbeddedRedis;
 import static ai.grakn.util.REST.Request.COMMIT_LOG_COUNTING;
 import static ai.grakn.util.REST.Request.KEYSPACE;

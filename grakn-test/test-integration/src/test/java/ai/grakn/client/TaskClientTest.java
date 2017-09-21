@@ -19,23 +19,9 @@
 
 package ai.grakn.client;
 
-import static ai.grakn.engine.TaskStatus.CREATED;
-import static ai.grakn.test.engine.tasks.BackgroundTaskTestUtils.createTask;
-import com.codahale.metrics.MetricRegistry;
-import static java.time.Instant.now;
-import static junit.framework.TestCase.assertFalse;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.core.IsEqual.equalTo;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import ai.grakn.engine.TaskId;
 import ai.grakn.engine.TaskStatus;
+import static ai.grakn.engine.TaskStatus.CREATED;
 import ai.grakn.engine.controller.TasksController;
 import ai.grakn.engine.tasks.manager.TaskManager;
 import ai.grakn.engine.tasks.manager.TaskState;
@@ -43,15 +29,28 @@ import ai.grakn.engine.tasks.manager.TaskStateStorage;
 import ai.grakn.engine.tasks.mock.ShortExecutionMockTask;
 import ai.grakn.exception.GraknBackendException;
 import ai.grakn.test.SparkContext;
-
+import static ai.grakn.test.engine.tasks.BackgroundTaskTestUtils.createTask;
+import ai.grakn.util.Constants;
+import com.codahale.metrics.MetricRegistry;
 import java.time.Duration;
 import java.time.Instant;
+import static java.time.Instant.now;
+import static junit.framework.TestCase.assertFalse;
 import mjson.Json;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.IsEqual.equalTo;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class TaskClientTest {
 

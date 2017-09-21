@@ -29,6 +29,7 @@ import ai.grakn.engine.tasks.manager.StandaloneTaskManager;
 import ai.grakn.engine.tasks.manager.TaskManager;
 import ai.grakn.engine.tasks.manager.redisqueue.RedisTaskManager;
 import ai.grakn.engine.util.SimpleURI;
+import ai.grakn.util.Constants;
 import ai.grakn.util.GraknVersion;
 import java.io.File;
 import java.io.FileOutputStream;

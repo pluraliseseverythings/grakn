@@ -21,11 +21,10 @@ package ai.grakn.client;
 import ai.grakn.engine.controller.SystemController;
 import ai.grakn.engine.controller.TasksController;
 import static ai.grakn.util.Constants.HTTP_LOCALHOST_8080;
-import ai.grakn.util.REST.Response.Task;
+import ai.grakn.util.REST.WebPath.Tasks;
 import com.codahale.metrics.MetricRegistry;
 import io.dropwizard.client.JerseyClientBuilder;
 import java.net.URI;
-import java.util.Collection;
 import java.util.Properties;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.WebTarget;
@@ -41,14 +40,13 @@ import javax.ws.rs.core.MediaType;
 public class GraknClient {
 
     private static final String GRAKN_CLIENT = "grakn-client";
+    
     private final MetricRegistry metricRegistry;
     private final javax.ws.rs.client.Client client;
-    private final URI uri;
     private final WebTarget target;
 
 
     private GraknClient(GraknClientConfiguration graknClientConfiguration, URI uri) {
-        this.uri = uri;
         this.metricRegistry = new MetricRegistry();
         this.client = new JerseyClientBuilder(metricRegistry)
                 .using(graknClientConfiguration.getJerseyClientConfiguration())
@@ -77,7 +75,7 @@ public class GraknClient {
                 .readEntity(Properties.class);
     }
 
-    public void tasksPost(Collection<Task> tasks) {
+    public void tasksPost(Tasks tasks) {
         target
                 .path(TasksController.TASKS)
                 .request()

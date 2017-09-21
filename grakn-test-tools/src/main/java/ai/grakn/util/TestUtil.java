@@ -15,33 +15,25 @@
  * You should have received a copy of the GNU General Public License
  * along with Grakn. If not, see <http://www.gnu.org/licenses/gpl.txt>.
  */
-package ai.grakn.test;
+package ai.grakn.util;
 
-import ai.grakn.engine.GraknEngineConfig;
-import ai.grakn.util.TestUtil;
+import java.io.IOException;
+import java.net.ServerSocket;
 
 /**
  * <p>
- *     Sets up a test grakn engine
+ *  Generic utility methods for testing
  * </p>
  *
- * <p>
- *     Sets up a grakn engine for testing purposes.
- * </p>
- * 
- * @author borislav
+ * @author Domenico Corapi
  *
  */
-public abstract class EngineTestUtil {
-
-    /**
-     * Create a configuration for use in tests, using random ports.
-     */
-    static GraknEngineConfig createTestConfig() {
-        GraknEngineConfig config = GraknEngineConfig.create();
-        Integer serverPort = TestUtil.getEphemeralPort();
-        config.setConfigProperty(GraknEngineConfig.SERVER_PORT_NUMBER, String.valueOf(serverPort));
-        return config;
+public class TestUtil {
+    public static int getEphemeralPort() {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
-
 }
