@@ -96,7 +96,7 @@ public class RedisTaskManagerTest {
         JedisPoolConfig poolConfig = new JedisPoolConfig();
         poolConfig.setBlockWhenExhausted(true);
         poolConfig.setMaxTotal(MAX_TOTAL);
-        jedisPool = new JedisPool(poolConfig, "localhost", 9899);
+        jedisPool = new JedisPool(poolConfig, Constants.LOCALHOST, 9899);
         assertFalse(jedisPool.isClosed());
         engineGraknTxFactory = EngineGraknTxFactory.createAndLoadSystemSchema(CONFIG.getProperties());
         int nThreads = 2;

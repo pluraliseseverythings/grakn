@@ -26,6 +26,7 @@ import ai.grakn.engine.GraknEngineServer;
 import ai.grakn.engine.tasks.manager.redisqueue.RedisTaskManager;
 import ai.grakn.engine.util.SimpleURI;
 import ai.grakn.test.GraknTestSetup;
+import static ai.grakn.util.Constants.LOCALHOST;
 import ai.grakn.util.EmbeddedRedis;
 import com.google.common.base.StandardSystemProperty;
 import com.pholser.junit.quickcheck.runner.JUnitQuickcheck;
@@ -113,7 +114,7 @@ public class GraknEngineStartIT {
         GraknEngineConfig graknEngineConfig = GraknEngineConfig.create();
         Properties properties = graknEngineConfig.getProperties();
         properties.setProperty(SERVER_PORT_NUMBER, port);
-        properties.setProperty(REDIS_HOST, new SimpleURI("localhost", REDIS_PORT).toString());
+        properties.setProperty(REDIS_HOST, new SimpleURI(LOCALHOST, REDIS_PORT).toString());
         properties.setProperty(TASK_MANAGER_IMPLEMENTATION, RedisTaskManager.class.getName());
         return GraknEngineServer.create(graknEngineConfig);
     }

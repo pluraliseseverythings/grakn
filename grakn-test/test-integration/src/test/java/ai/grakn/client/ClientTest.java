@@ -49,7 +49,7 @@ public class ClientTest {
 
     @Test
     public void graknEngineNotRunning() throws Exception {
-        boolean running = Client.serverIsRunning(Grakn.DEFAULT_URI);
+        boolean running = Client.serverIsRunning(Constants.DEFAULT_URI);
         assertFalse(running);
     }
 }

@@ -136,7 +136,7 @@ public class DistributionContext extends ExternalResource {
         // Set correct port & task manager
         Properties properties = GraknEngineConfig.create().getProperties();
         properties.setProperty(SERVER_PORT_NUMBER, port.toString());
-        properties.setProperty(REDIS_HOST, new SimpleURI("localhost", redisPort).toString());
+        properties.setProperty(REDIS_HOST, new SimpleURI(Constants.LOCALHOST, redisPort).toString());
         properties.setProperty(TASK_MANAGER_IMPLEMENTATION, taskManagerClass.getName());
         // To speed up tests of failure cases
         properties.setProperty(TASKS_RETRY_DELAY, "60");

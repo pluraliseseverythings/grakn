@@ -48,7 +48,7 @@ import java.util.Map;
 
  If you are running the Grakn server locally then you can initialise a graph with:
 
- <pre>{@code GraknTx graph = Grakn.session(Grakn.DEFAULT_URI, "keyspace").getGraph();}</pre>
+ <pre>{@code GraknTx graph = Grakn.session(Constants.DEFAULT_URI, "keyspace").getGraph();}</pre>
  If you are running the Grakn server remotely you must initialise the graph by providing the IP address of your server:
 
  <pre>{@code GraknTx graph = Grakn.session("127.6.21.2", "keyspace").getGraph();}</pre>
@@ -80,12 +80,6 @@ import java.util.Map;
 
 
 public class Grakn {
-
-    /**
-     * Constant to be passed to {@link #session(String, String)} to specify the default localhost Grakn Engine location.
-     * This default constant, which is set to localhost: 4567 cannot be changed in development"
-     */
-    public static final String DEFAULT_URI = "localhost:4567";
 
     private static final String GRAKN_SESSION_IMPLEMENTATION = "ai.grakn.factory.GraknSessionImpl";
 

@@ -67,7 +67,7 @@ public class GraknEngineFailoverIT {
 
     private static TaskStateStorage storage;
     private static JedisPool jedisPool;
-    private static SimpleURI redisURI = new SimpleURI("localhost", 5511);
+    private static SimpleURI redisURI = new SimpleURI(Constants.LOCALHOST, 5511);
 
     @ClassRule
     public static final DistributionContext engine1 = DistributionContext.startSingleQueueEngineProcess().port(7890).redisPort(redisURI.getPort());
@@ -167,7 +167,7 @@ public class GraknEngineFailoverIT {
     }
 
     private Set<TaskResult> sendTasks(int port, List<TaskState> tasks) {
-        TaskClient engineClient = TaskClient.of("localhost", port);
+        TaskClient engineClient = TaskClient.of(Constants.LOCALHOST, port);
         return tasks.stream().map(t -> {
             try {
                 return engineClient.sendTask(

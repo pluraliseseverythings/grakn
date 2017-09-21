@@ -42,6 +42,8 @@
         <module>grakn-test-profiles</module>
         <module>grakn-factory</module>
         <module>grakn-client</module>
+        <module>grakn-jersey-client</module>
+        <module>grakn-rest-api</module>
         <module>grakn-test-tools</module>
     </modules>
 

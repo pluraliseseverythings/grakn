@@ -53,7 +53,7 @@ public class JsonSessionTest {
     public final ExpectedException exception = ExpectedException.none();
     private GraqlClient client;
     private RemoteEndpoint remote;
-    private final URI uri = URI.create(Grakn.DEFAULT_URI);
+    private final URI uri = URI.create(Constants.DEFAULT_URI);
 
     @Before
     public void setUp() {

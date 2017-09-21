@@ -1,5 +1,6 @@
 package ai.grakn;
 
+import ai.grakn.util.Constants;
 import com.ldbc.driver.DbException;
 import com.ldbc.driver.ResultReporter;
 import com.ldbc.driver.workloads.ldbc.snb.interactive.LdbcQuery1;
@@ -9,16 +10,14 @@ import com.ldbc.driver.workloads.ldbc.snb.interactive.LdbcQuery8;
 import com.ldbc.driver.workloads.ldbc.snb.interactive.LdbcShortQuery1PersonProfile;
 import com.ldbc.driver.workloads.ldbc.snb.interactive.LdbcShortQuery2PersonPosts;
 import com.ldbc.driver.workloads.ldbc.snb.interactive.LdbcShortQuery3PersonFriends;
+import java.sql.Date;
+import java.time.Instant;
+import java.util.List;
 import junit.framework.TestCase;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
-
-import java.sql.Date;
-import java.time.Instant;
-import java.util.List;
-
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -44,7 +43,7 @@ public class GraknQueryHandlersTest extends TestCase {
         super.setUp();
 
         // connect to the graph
-        graknSession =  Grakn.session(GraknSession.DEFAULT_URI, "snb");
+        graknSession =  Grakn.session(Constants.DEFAULT_URI, "snb");
 
         // mock the graph connection
         mockConnectionState = mock(GraknDbConnectionState.class);

@@ -23,14 +23,29 @@ import ai.grakn.GraknTx;
 import ai.grakn.GraknTxType;
 import ai.grakn.Keyspace;
 import ai.grakn.concept.Attribute;
-import ai.grakn.concept.EntityType;
 import ai.grakn.concept.AttributeType;
+import ai.grakn.concept.EntityType;
 import ai.grakn.engine.GraknEngineConfig;
+import static ai.grakn.engine.GraknEngineConfig.KB_ANALYTICS;
+import static ai.grakn.engine.GraknEngineConfig.KB_MODE;
 import ai.grakn.engine.GraknEngineStatus;
 import ai.grakn.engine.SystemKeyspace;
 import ai.grakn.engine.factory.EngineGraknTxFactory;
 import ai.grakn.exception.GraknServerException;
 import ai.grakn.util.ErrorMessage;
+import static ai.grakn.util.REST.KBConfig.COMPUTER;
+import static ai.grakn.util.REST.KBConfig.DEFAULT;
+import static ai.grakn.util.REST.Request.CONFIG_PARAM;
+import static ai.grakn.util.REST.Request.FORMAT;
+import static ai.grakn.util.REST.Request.KEYSPACE;
+import static ai.grakn.util.REST.Request.KEYSPACE_PARAM;
+import static ai.grakn.util.REST.Response.ContentType.APPLICATION_JSON;
+import ai.grakn.util.REST.WebPath.System;
+import static ai.grakn.util.REST.WebPath.System.DELETE_KEYSPACE;
+import static ai.grakn.util.REST.WebPath.System.INITIALISE;
+import static ai.grakn.util.REST.WebPath.System.KEYSPACES;
+import static ai.grakn.util.REST.WebPath.System.METRICS;
+import static ai.grakn.util.REST.WebPath.System.STATUS;
 import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.json.MetricsModule;
@@ -42,17 +57,6 @@ import io.prometheus.client.exporter.common.TextFormat;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
-import mjson.Json;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import spark.Request;
-import spark.Response;
-import spark.Service;
-
-import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
@@ -62,23 +66,17 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-
-import static ai.grakn.engine.GraknEngineConfig.KB_ANALYTICS;
-import static ai.grakn.engine.GraknEngineConfig.KB_MODE;
-import static ai.grakn.util.REST.KBConfig.COMPUTER;
-import static ai.grakn.util.REST.KBConfig.DEFAULT;
-import static ai.grakn.util.REST.Request.FORMAT;
-import static ai.grakn.util.REST.Request.CONFIG_PARAM;
-import static ai.grakn.util.REST.Request.KEYSPACE;
-import static ai.grakn.util.REST.Request.KEYSPACE_PARAM;
-import static ai.grakn.util.REST.Response.ContentType.APPLICATION_JSON;
-import static ai.grakn.util.REST.WebPath.System.CONFIGURATION;
-import static ai.grakn.util.REST.WebPath.System.DELETE_KEYSPACE;
-import static ai.grakn.util.REST.WebPath.System.INITIALISE;
-import static ai.grakn.util.REST.WebPath.System.KEYSPACES;
-import static ai.grakn.util.REST.WebPath.System.METRICS;
-import static ai.grakn.util.REST.WebPath.System.STATUS;
+import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.DELETE;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import mjson.Json;
 import static org.apache.http.HttpHeaders.CACHE_CONTROL;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import spark.Request;
+import spark.Response;
+import spark.Service;
 
 
 
@@ -97,6 +95,8 @@ import static org.apache.http.HttpHeaders.CACHE_CONTROL;
  * @author fppt
  */
 public class SystemController {
+
+    public static final String CONFIGURATION = "/configuration";
 
     private static final String PROMETHEUS_CONTENT_TYPE = "text/plain; version=0.0.4";
     private static final String PROMETHEUS = "prometheus";
@@ -118,7 +118,7 @@ public class SystemController {
         this.prometheusRegistry = new CollectorRegistry();
         prometheusRegistry.register(prometheusMetricWrapper);
         spark.get(KEYSPACES,     this::getKeyspaces);
-        spark.get(CONFIGURATION, this::getConfiguration);
+        spark.get(System.CONFIGURATION, this::getConfiguration);
         spark.get(METRICS, this::getMetrics);
         spark.get(INITIALISE, this::initialiseSession);
         spark.get(STATUS, this::getStatus);
@@ -168,7 +168,7 @@ public class SystemController {
     }
 
     @GET
-    @Path("/configuration")
+    @Path(CONFIGURATION)
     @ApiOperation(value = "Get config which is used to build transactions")
     @ApiImplicitParam(name = CONFIG_PARAM, value = "The type of config to return", required = true, dataType = "string", paramType = "path")
     private String getConfiguration(Request request, Response response) {

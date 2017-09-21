@@ -219,7 +219,7 @@ public class GraqlShell {
         }
 
         Keyspace keyspace = Keyspace.of(cmd.getOptionValue("k", DEFAULT_KEYSPACE));
-        String uriString = cmd.getOptionValue("r", Grakn.DEFAULT_URI);
+        String uriString = cmd.getOptionValue("r", Constants.DEFAULT_URI);
         String outputFormat = cmd.getOptionValue("o", DEFAULT_OUTPUT_FORMAT);
         Optional<String> username = Optional.ofNullable(cmd.getOptionValue("u"));
         Optional<String> password = Optional.ofNullable(cmd.getOptionValue("p"));

@@ -52,7 +52,7 @@ public class SparkContext extends ExternalResource {
         config.setConfigProperty(GraknEngineConfig.SERVER_PORT_NUMBER, Integer.toString(port));
 
         if ("0.0.0.0".equals(config.getProperty(GraknEngineConfig.SERVER_HOST_NAME))) {
-            config.setConfigProperty(GraknEngineConfig.SERVER_HOST_NAME, "localhost");
+            config.setConfigProperty(GraknEngineConfig.SERVER_HOST_NAME, Constants.LOCALHOST);
         }
     }
 

@@ -39,8 +39,6 @@ import javax.annotation.CheckReturnValue;
  * @author fppt
  */
 public interface GraknSession extends AutoCloseable {
-    String DEFAULT_URI = "localhost:4567";
-
     /**
      * Gets a new transaction bound to the keyspace of this Session.
      *

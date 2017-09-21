@@ -21,7 +21,7 @@ public class JedisLockTest {
     public static void setupClass() {
         EmbeddedRedis.start(PORT);
         JedisPoolConfig poolConfig = new JedisPoolConfig();
-        jedisPool = new JedisPool(poolConfig, "localhost", PORT);
+        jedisPool = new JedisPool(poolConfig, Constants.LOCALHOST, PORT);
     }
 
     @AfterClass
