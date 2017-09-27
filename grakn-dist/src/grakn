@@ -525,6 +525,18 @@ cli_case_grakn_server_clean() {
   fi
 }
 
+cli_case_grakn_cluster_add() {
+  local response=curl -X POST $1 https://localhost:4567/cluster --data "{ 'host': '${$1}' }"
+}
+
+cli_case_grakn_cluster_remove() {
+  local response=curl -X DELETE $1 https://localhost:4567/cluster --data "{ 'host': '${$1}' }"
+}
+
+cli_case_grakn_cluster_status() {
+  local response=curl -X GET $1 https://localhost:4567/cluster --data "{ 'host': '${$1}' }"
+}
+
 cli_case_grakn_version() {
   java -cp ${CLASSPATH} -Dgrakn.dir="${GRAKN_HOME}/services" ai.grakn.graql.GraqlShell --version
 }
@@ -533,7 +545,8 @@ cli_case_grakn_help() {
   echo "Usage: grakn COMMAND
 
 COMMAND:
-server     Manage Grakn components
+server     Manage Grakn
+cluster    Manage Grakn cluster
 version    Print Grakn version
 help       Print this message
 
@@ -655,6 +668,19 @@ case "$1" in
       ;;
       help|*)
         cli_case_grakn_server_help
+      ;;
+    esac
+  ;;
+  cluster)
+    case "$2" in
+      add)
+        cli_case_grakn_cluster_add $3
+      ;;
+      remove)
+        cli_case_grakn_cluster_remove $3
+      ;;
+      status)
+        cli_case_grakn_cluster_status
       ;;
     esac
   ;;
