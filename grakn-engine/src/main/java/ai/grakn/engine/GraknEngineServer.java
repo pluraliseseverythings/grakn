@@ -93,6 +93,7 @@ public class GraknEngineServer extends Application<GraknEngineServerConfiguratio
     private final LockProvider lockProvider;
     private final GraknEngineStatus graknEngineStatus = new GraknEngineStatus();
     private final RedisWrapper redisWrapper;
+    private final ExecutorService taskExecutor;
 
     public GraknEngineServer(GraknEngineConfig prop, RedisWrapper redisWrapper) {
         this.prop = prop;
@@ -108,6 +109,7 @@ public class GraknEngineServer extends Application<GraknEngineServerConfiguratio
         this.factory = EngineGraknTxFactory.create(prop.getProperties());
         // Task manager
         this.taskManager = makeTaskManager(inMemoryQueue, redisWrapper.getJedisPool(), lockProvider);
+        this.taskExecutor = TasksController.taskExecutor();
     }
 
     public GraknEngineServer() {
@@ -157,6 +159,7 @@ public class GraknEngineServer extends Application<GraknEngineServerConfiguratio
         synchronized (this) {
             stopTaskManager();
             redisWrapper.close();
+            taskExecutor.shutdown();
         }
     }
 

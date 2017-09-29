@@ -19,6 +19,30 @@
 package ai.grakn.engine.controller.api;
 
 import ai.grakn.concept.AttributeType;
+import ai.grakn.engine.factory.EngineGraknTxFactory;
+import ai.grakn.exception.GraknServerException;
+import ai.grakn.graql.internal.parser.QueryParserImpl;
+import mjson.Json;
+import org.apache.commons.httpclient.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import spark.Request;
+import spark.Response;
+import spark.Service;
+
+import java.util.Optional;
+
+import static ai.grakn.engine.controller.util.Requests.extractJsonField;
+import static ai.grakn.engine.controller.util.Requests.mandatoryBody;
+import static ai.grakn.engine.controller.util.Requests.mandatoryPathParameter;
+import static ai.grakn.engine.controller.util.Requests.mandatoryQueryParameter;
+import static ai.grakn.util.REST.Request.ATTRIBUTE_TYPE_LABEL_PARAMETER;
+import static ai.grakn.util.REST.Request.ATTRIBUTE_TYPE_OBJECT_JSON_FIELD;
+import static ai.grakn.util.REST.Request.CONCEPT_ID_JSON_FIELD;
+import static ai.grakn.util.REST.Request.KEYSPACE;
+import static ai.grakn.util.REST.Request.LABEL_JSON_FIELD;
+import static ai.grakn.util.REST.Request.TYPE_JSON_FIELD;
+import static ai.grakn.util.REST.WebPath.Api.ATTRIBUTE_TYPE;
 
 /**
  * <p>
@@ -88,7 +112,7 @@ public class AttributeTypeController {
 //
 //    private AttributeType.DataType<?> fromString(String dataType) {
 //        Optional<AttributeType.DataType> fromStringOpt =
-//            Optional.ofNullable(QueryParser.DATA_TYPES.get(dataType));
+//            Optional.ofNullable(QueryParserImpl.DATA_TYPES.get(dataType));
 //
 //        return fromStringOpt.orElseThrow(() ->
 //            GraknServerException.invalidQueryExplaination("invalid data type supplied: '" + dataType + "'")
@@ -97,7 +121,7 @@ public class AttributeTypeController {
 //
 //    private String toString(AttributeType.DataType<?> dataType) {
 //        Optional<String> toStringOpt =
-//            Optional.ofNullable(QueryParser.DATA_TYPES.inverse().get(dataType));
+//            Optional.ofNullable(QueryParserImpl.DATA_TYPES.inverse().get(dataType));
 //
 //        return toStringOpt.orElseThrow(() ->
 //            GraknServerException.invalidQueryExplaination("invalid data type supplied: '" + dataType + "'")

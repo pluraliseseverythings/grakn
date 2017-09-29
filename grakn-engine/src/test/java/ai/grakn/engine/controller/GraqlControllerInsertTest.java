@@ -24,6 +24,7 @@ import static ai.grakn.engine.controller.GraqlControllerReadOnlyTest.jsonRespons
 import static ai.grakn.engine.controller.GraqlControllerReadOnlyTest.stringResponse;
 import ai.grakn.engine.factory.EngineGraknTxFactory;
 import ai.grakn.graql.QueryBuilder;
+import ai.grakn.graql.QueryParser;
 import ai.grakn.test.SampleKBContext;
 import ai.grakn.test.kbs.MovieKB;
 import static ai.grakn.util.ErrorMessage.MISSING_MANDATORY_REQUEST_PARAMETERS;
@@ -76,7 +77,11 @@ public class GraqlControllerInsertTest {
 
         when(mockQueryBuilder.materialise(anyBoolean())).thenReturn(mockQueryBuilder);
         when(mockQueryBuilder.infer(anyBoolean())).thenReturn(mockQueryBuilder);
-        when(mockQueryBuilder.parse(any()))
+
+        QueryParser mockParser = mock(QueryParser.class);
+
+        when(mockQueryBuilder.parser()).thenReturn(mockParser);
+        when(mockParser.parseQuery(any()))
                 .thenAnswer(invocation -> sampleKB.tx().graql().parse(invocation.getArgument(0)));
 
         mockTx = mock(GraknTx.class, RETURNS_DEEP_STUBS);
