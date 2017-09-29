@@ -20,9 +20,8 @@
 package ai.grakn.engine.session;
 
 import ai.grakn.engine.GraknEngineConfig;
-import ai.grakn.engine.GraknEngineStatus;
-import ai.grakn.engine.controller.SparkContext;
-import ai.grakn.engine.controller.SystemController;
+import ai.grakn.engine.GraknEngineServer;
+import ai.grakn.engine.GraknEngineServerConfiguration;
 import ai.grakn.engine.factory.EngineGraknTxFactory;
 import ai.grakn.util.EmbeddedCassandra;
 import static ai.grakn.util.REST.RemoteShell.ACTION;
@@ -36,7 +35,8 @@ import static ai.grakn.util.REST.RemoteShell.KEYSPACE;
 import static ai.grakn.util.REST.RemoteShell.MATERIALISE;
 import static ai.grakn.util.REST.RemoteShell.OUTPUT_FORMAT;
 import static ai.grakn.util.REST.RemoteShell.QUERY;
-import com.codahale.metrics.MetricRegistry;
+import io.dropwizard.testing.ResourceHelpers;
+import io.dropwizard.testing.junit.DropwizardAppRule;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -53,6 +53,7 @@ import org.junit.After;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import static org.mockito.ArgumentMatchers.any;
@@ -74,17 +75,24 @@ public class RemoteSessionTest {
             MATERIALISE, false
     );
 
+    private final static Properties properties = GraknEngineConfig.create().getProperties();
+    private final static EngineGraknTxFactory factory = EngineGraknTxFactory.createAndLoadSystemSchema(properties);
+
+
+
     @ClassRule
-    public static SparkContext sparkContext = SparkContext.withControllers(spark -> {
-        EmbeddedCassandra.start();
-        Properties properties = GraknEngineConfig.create().getProperties();
-        EngineGraknTxFactory factory = EngineGraknTxFactory.createAndLoadSystemSchema(properties);
-        new SystemController(factory, spark, new GraknEngineStatus(), new MetricRegistry());
-    }).port(4567);
+    public static final DropwizardAppRule<GraknEngineServerConfiguration> RULE =
+            new DropwizardAppRule<>(GraknEngineServer.class,
+                    ResourceHelpers.resourceFilePath("config.yaml"));
 
     private final BlockingQueue<Json> responses = new LinkedBlockingDeque<>();
     private final RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
     private final Set<RemoteSession> remoteSessions = new HashSet<>();
+
+    @BeforeClass
+    public static void beforeClass() {
+        EmbeddedCassandra.start();
+    }
 
     @Before
     public void setUp() throws IOException {

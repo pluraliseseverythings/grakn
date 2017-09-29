@@ -8,22 +8,21 @@ import ai.grakn.graql.internal.printer.Printers;
 import ai.grakn.test.SampleKBContext;
 import ai.grakn.test.kbs.GenealogyKB;
 import ai.grakn.util.REST;
-import com.jayway.restassured.RestAssured;
-import com.jayway.restassured.response.Response;
-import mjson.Json;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
-
-import java.util.Map;
-
 import static ai.grakn.util.REST.Request.Graql.INFER;
 import static ai.grakn.util.REST.Request.Graql.LIMIT_EMBEDDED;
 import static ai.grakn.util.REST.Request.Graql.MATERIALISE;
 import static ai.grakn.util.REST.Request.Graql.QUERY;
 import static ai.grakn.util.REST.Request.KEYSPACE;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_HAL;
+import com.jayway.restassured.RestAssured;
+import com.jayway.restassured.response.Response;
+import io.dropwizard.testing.junit.ResourceTestRule;
+import java.util.Map;
 import static junit.framework.TestCase.assertTrue;
+import mjson.Json;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Test;
 
 public class DashboardControllerTest {
 
@@ -54,11 +53,13 @@ public class DashboardControllerTest {
     @ClassRule
     public static final SampleKBContext genealogyKB = SampleKBContext.preLoad(GenealogyKB.get());
 
+    private static EngineGraknTxFactory factory = EngineGraknTxFactory.createAndLoadSystemSchema(GraknEngineConfig.create().getProperties());
+
     @ClassRule
-    public static SparkContext sparkContext = SparkContext.withControllers(spark -> {
-        EngineGraknTxFactory factory = EngineGraknTxFactory.createAndLoadSystemSchema(GraknEngineConfig.create().getProperties());
-        new DashboardController(factory, spark);
-    });
+    public static final ResourceTestRule resources = ResourceTestRule.builder()
+            .addResource(new DashboardController(factory))
+            .build();
+
 
     @Before
     public void setUp() {

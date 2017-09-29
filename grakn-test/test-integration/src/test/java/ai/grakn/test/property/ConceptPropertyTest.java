@@ -91,7 +91,8 @@ public class ConceptPropertyTest {
 
         exception.expect(InvocationTargetException.class);
         exception.expectCause(isA(GraknTxOperationException.class));
-        exception.expectCause(hasProperty("message", is(ErrorMessage.TX_CLOSED_ON_ACTION.getMessage("closed", graph.getKeyspace()))));
+        exception.expectCause(hasProperty("message", is(
+                ErrorMessage.TX_CLOSED_ON_ACTION.getMessage("closed", graph.getKeyspace()))));
 
         method.invoke(concept, params);
     }

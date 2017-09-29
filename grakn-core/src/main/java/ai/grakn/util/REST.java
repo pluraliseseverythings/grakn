@@ -122,7 +122,7 @@ public class REST {
         public static final String USER_ATTR = "user";
         
         // Request parameters
-        public static final String ID_PARAMETER = ":id";
+        public static final String ID_PARAMETER = "{id}";
         public static final String KEYSPACE_PARAM = "keyspace";
         public static final String TASK_STATUS_PARAMETER = "status";
         public static final String TASK_CLASS_NAME_PARAMETER = "className";
@@ -142,11 +142,15 @@ public class REST {
         public static final String UUID_PARAMETER = "uuid";
 
         // URL parameters for API endpoints
-        public static final String ATTRIBUTE_TYPE_LABEL_PARAMETER = ":attributeTypeLabel";
+        public static final String ATTRIBUTE_TYPE_LABEL_PARAMETER_PATH = "{attributeTypeLabel}";
+        public static final String ATTRIBUTE_TYPE_LABEL_PARAMETER = "attributeTypeLabel";
         public static final String ENTITY_TYPE_LABEL_PARAMETER = ":entityTypeLabel";
-        public static final String RELATIONSHIP_TYPE_LABEL_PARAMETER = ":relationshipTypeLabel";
-        public static final String ROLE_LABEL_PARAMETER = ":roleLabel";
-        public static final String RULE_LABEL_PARAMETER = ":ruleLabel";
+        public static final String RELATIONSHIP_TYPE_LABEL_PARAMETER_PATH = ":relationshipTypeLabel";
+        public static final String RELATIONSHIP_TYPE_LABEL_PARAMETER = "{relationshipTypeLabel}";
+        public static final String ROLE_LABEL_PARAMETER_PATH = "{roleLabel}";
+        public static final String ROLE_LABEL_PARAMETER = "roleLabel";
+        public static final String RULE_LABEL_PARAMETER_PATH = "{ruleLabel}";
+        public static final String RULE_LABEL_PARAMETER = "ruleLabel";
         public static final String CONCEPT_ID_JSON_FIELD = "conceptId";
         public static final String ENTITY_CONCEPT_ID_PARAMETER = ":entityConceptId";
         public static final String ATTRIBUTE_CONCEPT_ID_PARAMETER = ":attributeConceptId";

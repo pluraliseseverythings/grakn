@@ -23,29 +23,30 @@ import ai.grakn.GraknTxType;
 import ai.grakn.Keyspace;
 import ai.grakn.concept.RelationshipType;
 import ai.grakn.concept.Role;
-import ai.grakn.engine.factory.EngineGraknTxFactory;
-import mjson.Json;
-import org.apache.commons.httpclient.HttpStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import spark.Request;
-import spark.Response;
-import spark.Service;
-
-import java.util.Optional;
-import java.util.stream.Stream;
-
 import static ai.grakn.engine.controller.util.Requests.extractJsonField;
-import static ai.grakn.engine.controller.util.Requests.mandatoryBody;
-import static ai.grakn.engine.controller.util.Requests.mandatoryPathParameter;
-import static ai.grakn.engine.controller.util.Requests.mandatoryQueryParameter;
+import ai.grakn.engine.factory.EngineGraknTxFactory;
+import ai.grakn.engine.util.EngineUtil;
+import ai.grakn.util.REST.Request;
 import static ai.grakn.util.REST.Request.CONCEPT_ID_JSON_FIELD;
-import static ai.grakn.util.REST.Request.KEYSPACE;
+import static ai.grakn.util.REST.Request.KEYSPACE_PARAM;
 import static ai.grakn.util.REST.Request.LABEL_JSON_FIELD;
-import static ai.grakn.util.REST.Request.RELATIONSHIP_TYPE_LABEL_PARAMETER;
+import static ai.grakn.util.REST.Request.RELATIONSHIP_TYPE_LABEL_PARAMETER_PATH;
 import static ai.grakn.util.REST.Request.RELATIONSHIP_TYPE_OBJECT_JSON_FIELD;
 import static ai.grakn.util.REST.Request.ROLE_ARRAY_JSON_FIELD;
 import static ai.grakn.util.REST.WebPath.Api.RELATIONSHIP_TYPE;
+import java.util.Optional;
+import java.util.stream.Stream;
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.Response.Status;
+import mjson.Json;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * <p>
@@ -58,42 +59,41 @@ public class RelationshipTypeController {
     private final EngineGraknTxFactory factory;
     private static final Logger LOG = LoggerFactory.getLogger(RelationshipTypeController.class);
 
-    public RelationshipTypeController(EngineGraknTxFactory factory, Service spark) {
+    public RelationshipTypeController(EngineGraknTxFactory factory) {
         this.factory = factory;
-
-        spark.get(RELATIONSHIP_TYPE + "/" + RELATIONSHIP_TYPE_LABEL_PARAMETER, this::getRelationshipType);
-        spark.post(RELATIONSHIP_TYPE, this::postRelationshipType);
-//        spark.post("/api/relationshipType/:relationshipTypeLabel/relates/:roleLabel", null); // TODO 
     }
 
-    private Json getRelationshipType(Request request, Response response) {
+    @GET
+    @Path(RELATIONSHIP_TYPE + "/" + RELATIONSHIP_TYPE_LABEL_PARAMETER_PATH)
+    public String getRelationshipType(
+            @QueryParam(KEYSPACE_PARAM) String keyspace,
+            @PathParam(Request.RELATIONSHIP_TYPE_LABEL_PARAMETER) String relationshipTypeLabel) {
         LOG.debug("getRelationshipType - request received.");
-        String relationshipTypeLabel = mandatoryPathParameter(request, RELATIONSHIP_TYPE_LABEL_PARAMETER);
-        String keyspace = mandatoryQueryParameter(request, KEYSPACE);
         LOG.debug("getRelationshipType - attempting to find role " + relationshipTypeLabel + " in keyspace " + keyspace);
         try (GraknTx tx = factory.tx(Keyspace.of(keyspace), GraknTxType.READ)) {
             Optional<RelationshipType> relationshipType = Optional.ofNullable(tx.getRelationshipType(relationshipTypeLabel));
             if (relationshipType.isPresent()) {
                 String jsonConceptId = relationshipType.get().getId().getValue();
                 String jsonRelationshipTypeLabel = relationshipType.get().getLabel().getValue();
-                response.status(HttpStatus.SC_OK);
                 Json responseBody = relationshipTypeJson(jsonConceptId, jsonRelationshipTypeLabel);
                 LOG.debug("getRelationshipType - relationshipType found - " + jsonConceptId + ", " + jsonRelationshipTypeLabel + ". request processed.");
-                return responseBody;
+                return responseBody.asString();
             } else {
-                response.status(HttpStatus.SC_BAD_REQUEST);
                 LOG.debug("getRelationshipType - relationshipType NOT found. request processed.");
-                return Json.nil();
+                throw new WebApplicationException(Status.BAD_REQUEST);
             }
         }
     }
 
-    private Json postRelationshipType(Request request, Response response) {
+    @POST
+    @Path(RELATIONSHIP_TYPE)
+    public String postRelationshipType(
+            @QueryParam(KEYSPACE_PARAM) String keyspace,
+            @javax.ws.rs.core.Context HttpServletRequest request) {
         LOG.debug("postRelationshipType - request received.");
-        Json requestBody = Json.read(mandatoryBody(request));
+        Json requestBody = Json.read(EngineUtil.readBody(request));
         String relationshipTypeLabel = extractJsonField(requestBody, RELATIONSHIP_TYPE_OBJECT_JSON_FIELD, LABEL_JSON_FIELD).asString();
         Stream<String> roleLabels = extractJsonField(requestBody, RELATIONSHIP_TYPE_OBJECT_JSON_FIELD, ROLE_ARRAY_JSON_FIELD).asList().stream().map(e -> (String) e);
-        String keyspace = mandatoryQueryParameter(request, KEYSPACE);
 
         LOG.debug("postRelationshipType - attempting to add a new relationshipType " + relationshipTypeLabel + " on keyspace " + keyspace);
         try (GraknTx tx = factory.tx(Keyspace.of(keyspace), GraknTxType.WRITE)) {
@@ -108,10 +108,9 @@ public class RelationshipTypeController {
             String jsonConceptId = relationshipType.getId().getValue();
             String jsonRelationshipTypeLabel = relationshipType.getLabel().getValue();
             LOG.debug("postRelationshipType - relationshipType " + jsonRelationshipTypeLabel + " with id " + jsonConceptId + " added. request processed.");
-            response.status(HttpStatus.SC_OK);
             Json responseBody = relationshipTypeJson(jsonConceptId, jsonRelationshipTypeLabel);
 
-            return responseBody;
+            return responseBody.asString();
         }
     }
 

@@ -144,7 +144,8 @@ public class GraqlQueryException extends GraknException {
     }
 
     public static GraqlQueryException insertMetaType(Label label, SchemaConcept schemaConcept) {
-        return new GraqlQueryException(ErrorMessage.INSERT_METATYPE.getMessage(label, schemaConcept.getLabel()));
+        return new GraqlQueryException(
+                ErrorMessage.INSERT_METATYPE.getMessage(label, schemaConcept.getLabel()));
     }
 
     /**

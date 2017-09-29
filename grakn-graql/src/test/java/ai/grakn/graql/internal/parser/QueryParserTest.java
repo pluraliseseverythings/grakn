@@ -887,7 +887,8 @@ public class QueryParserTest {
     @Test
     public void whenParsingAggregateWithWrongVariableArgumentNumber_Throw() {
         exception.expect(GraqlQueryException.class);
-        exception.expectMessage(ErrorMessage.AGGREGATE_ARGUMENT_NUM.getMessage("group", "1-2", 0));
+        exception.expectMessage(
+                ErrorMessage.AGGREGATE_ARGUMENT_NUM.getMessage("group", "1-2", 0));
         //noinspection ResultOfMethodCallIgnored
         parse("match $x isa name; aggregate group;");
     }

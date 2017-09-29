@@ -58,6 +58,11 @@
             </exclusions>
         </dependency>
         <dependency>
+            <groupId>io.dropwizard</groupId>
+            <artifactId>dropwizard-logging</artifactId>
+            <version>${dropwizard.version}</version>
+        </dependency>
+        <dependency>
             <artifactId>jackson-annotations</artifactId>
             <groupId>com.fasterxml.jackson.core</groupId>
             <version>${jackson.version}</version>

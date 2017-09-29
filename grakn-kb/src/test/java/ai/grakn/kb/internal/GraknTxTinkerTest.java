@@ -83,7 +83,8 @@ public class GraknTxTinkerTest extends TxTestBase {
         graph.close();
 
         expectedException.expect(GraknTxOperationException.class);
-        expectedException.expectMessage(ErrorMessage.TX_CLOSED_ON_ACTION.getMessage("closed", graph.getKeyspace()));
+        expectedException.expectMessage(
+                ErrorMessage.TX_CLOSED_ON_ACTION.getMessage("closed", graph.getKeyspace()));
 
         graph.putEntityType("Thingy");
     }

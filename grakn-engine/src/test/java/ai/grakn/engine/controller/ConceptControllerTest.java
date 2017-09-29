@@ -22,31 +22,29 @@ import ai.grakn.GraknTx;
 import ai.grakn.GraknTxType;
 import ai.grakn.concept.Concept;
 import ai.grakn.engine.GraknEngineStatus;
+import static ai.grakn.engine.controller.Utilities.stringResponse;
 import ai.grakn.engine.factory.EngineGraknTxFactory;
+import static ai.grakn.graql.internal.hal.HALBuilder.renderHALConceptData;
 import ai.grakn.test.SampleKBContext;
 import ai.grakn.test.kbs.MovieKB;
 import ai.grakn.util.REST;
-import ai.grakn.util.SampleKBLoader;
-import com.codahale.metrics.MetricRegistry;
-import com.jayway.restassured.response.Response;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Ignore;
-import org.junit.Test;
-
-import static ai.grakn.engine.controller.Utilities.exception;
-import static ai.grakn.engine.controller.Utilities.stringResponse;
-import static ai.grakn.graql.internal.hal.HALBuilder.renderHALConceptData;
-import static ai.grakn.util.ErrorMessage.UNSUPPORTED_CONTENT_TYPE;
 import static ai.grakn.util.REST.Request.Concept.LIMIT_EMBEDDED;
 import static ai.grakn.util.REST.Request.KEYSPACE;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_HAL;
 import static ai.grakn.util.REST.Response.Graql.IDENTIFIER;
+import ai.grakn.util.REST.WebPath;
+import ai.grakn.util.SampleKBLoader;
+import com.codahale.metrics.MetricRegistry;
 import static com.jayway.restassured.RestAssured.with;
-import static org.hamcrest.CoreMatchers.containsString;
+import com.jayway.restassured.response.Response;
+import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.fail;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Ignore;
+import org.junit.Test;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
@@ -58,14 +56,14 @@ public class ConceptControllerTest {
     private static EngineGraknTxFactory mockFactory = mock(EngineGraknTxFactory.class);
 
     @ClassRule
-    public static SampleKBContext sampleKB = SampleKBContext.preLoad(MovieKB.get());
+    public static final ResourceTestRule resources = ResourceTestRule.builder()
+            .addResource(new SystemController(mockFactory, new GraknEngineStatus(), new MetricRegistry()))
+            .addResource(new ConceptController(mockFactory, new MetricRegistry()))
+            .build();
 
     @ClassRule
-    public static SparkContext sparkContext = SparkContext.withControllers(spark -> {
-        MetricRegistry metricRegistry = new MetricRegistry();
-        new SystemController(mockFactory, spark, new GraknEngineStatus(), metricRegistry);
-        new ConceptController(mockFactory, spark, metricRegistry);
-    });
+    public static SampleKBContext sampleKB = SampleKBContext.preLoad(MovieKB.get());
+
 
     @Before
     public void setupMock(){
@@ -102,24 +100,12 @@ public class ConceptControllerTest {
     public void gettingConceptByIdWithHAlAcceptType_ResponseContentTypeIsHAL(){
         Concept concept = sampleKB.tx().getEntityType("movie");
 
-        Response response = with().queryParam(KEYSPACE, mockTx.getKeyspace().getValue())
-                .accept(APPLICATION_HAL)
-                .get(REST.WebPath.Concept.CONCEPT + concept.getId());
+        javax.ws.rs.core.Response response = resources
+                .target(WebPath.Concept.CONCEPT + concept.getId())
+                .queryParam(KEYSPACE, mockTx.getKeyspace().getValue())
+                .request(APPLICATION_HAL).get();
 
-        assertThat(response.contentType(), equalTo(APPLICATION_HAL));
-    }
-
-    @Test
-    public void gettingConceptByIdWithInvalidAcceptType_ResponseStatusIs406(){
-        Concept concept = sampleKB.tx().getEntityType("movie");
-
-        Response response = with().queryParam(KEYSPACE, mockTx.getKeyspace())
-                .queryParam(IDENTIFIER, concept.getId().getValue())
-                .accept("invalid")
-                .get(REST.WebPath.Concept.CONCEPT + concept.getId());
-
-        assertThat(response.statusCode(), equalTo(406));
-        assertThat(exception(response), containsString(UNSUPPORTED_CONTENT_TYPE.getMessage("invalid")));
+        assertThat(response.getHeaderString("Content-type"), equalTo(APPLICATION_HAL));
     }
 
     @Test

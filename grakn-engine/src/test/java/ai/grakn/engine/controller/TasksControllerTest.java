@@ -21,7 +21,6 @@ package ai.grakn.engine.controller;
 import ai.grakn.engine.TaskId;
 import static ai.grakn.engine.TaskStatus.FAILED;
 import static ai.grakn.engine.controller.Utilities.createTask;
-import static ai.grakn.engine.controller.Utilities.exception;
 import ai.grakn.engine.tasks.manager.TaskManager;
 import ai.grakn.engine.tasks.manager.TaskSchedule;
 import ai.grakn.engine.tasks.manager.TaskState;
@@ -45,20 +44,15 @@ import com.codahale.metrics.MetricRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
-import static com.jayway.restassured.RestAssured.with;
-import com.jayway.restassured.config.ObjectMapperConfig;
-import com.jayway.restassured.config.RestAssuredConfig;
-import com.jayway.restassured.mapper.ObjectMapper;
-import com.jayway.restassured.mapper.ObjectMapperDeserializationContext;
-import com.jayway.restassured.mapper.ObjectMapperSerializationContext;
-import com.jayway.restassured.response.Response;
-import com.jayway.restassured.specification.RequestSpecification;
+import io.dropwizard.testing.junit.ResourceTestRule;
 import java.time.Duration;
 import java.time.Instant;
 import static java.time.Instant.now;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.core.Response;
 import mjson.Json;
 import org.apache.http.HttpStatus;
 import org.apache.http.entity.ContentType;
@@ -84,9 +78,9 @@ public class TasksControllerTest {
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @ClassRule
-    public static final SparkContext ctx = SparkContext.withControllers(spark -> {
-        new TasksController(spark, manager, new MetricRegistry());
-    });
+    public static final ResourceTestRule resources = ResourceTestRule.builder()
+            .addResource(new TasksController(manager, new MetricRegistry()))
+            .build();
 
     @Before
     public void reset(){
@@ -106,14 +100,14 @@ public class TasksControllerTest {
     public void afterSendingTask_TheResponseContainsTheCorrectIdentifier(){
         Response response = send();
 
-        assertThat(response.getBody().as(Json.class, jsonMapper).at(0).at("id"), notNullValue());
+        assertThat(Json.read(response.getEntity().toString()).at(0).at("id"), notNullValue());
     }
 
     @Test
     public void afterSendingTask_TheResponseTypeIsJson(){
         Response response = send();
 
-        assertThat(response.contentType(), equalTo(ContentType.APPLICATION_JSON.getMimeType()));
+        assertThat(response.getMetadata().get("Content-Type"), equalTo(ContentType.APPLICATION_JSON.getMimeType()));
     }
 
     @Test
@@ -134,8 +128,8 @@ public class TasksControllerTest {
                         makeJsonTask(ImmutableMap.of("conf_key_2", "conf_value_2"),
                                 defaultParams()));
         Response response = send(tasks);
-        assertThat(response.getBody().as(Json.class, jsonMapper).at(0).at("id"), notNullValue());
-        assertThat(response.getBody().as(Json.class, jsonMapper).at(1).at("id"), notNullValue());
+        assertThat(Json.read(response.getEntity().toString()).at(0).at("id"), notNullValue());
+        assertThat(Json.read(response.getEntity().toString()).at(1).at("id"), notNullValue());
     }
 
     @Test
@@ -158,24 +152,24 @@ public class TasksControllerTest {
     public void afterSendingTaskWithMissingClassName_Grakn400IsThrown(){
         Response response = sendDefaultMinus(TASK_CLASS_NAME_PARAMETER);
 
-        assertThat(exception(response), containsString(MISSING_MANDATORY_REQUEST_PARAMETERS.getMessage(TASK_CLASS_NAME_PARAMETER)));
-        assertThat(response.statusCode(), equalTo(400));
+        assertThat(response.getEntity().toString(), containsString(MISSING_MANDATORY_REQUEST_PARAMETERS.getMessage(TASK_CLASS_NAME_PARAMETER)));
+        assertThat(response.getStatus(), equalTo(400));
     }
 
     @Test
     public void afterSendingTaskWithMissingCreatedBy_Grakn400IsThrown(){
         Response response = sendDefaultMinus(TASK_CREATOR_PARAMETER);
 
-        assertThat(exception(response), containsString(MISSING_MANDATORY_REQUEST_PARAMETERS.getMessage(TASK_CREATOR_PARAMETER)));
-        assertThat(response.statusCode(), equalTo(400));
+        assertThat(response.getEntity().toString(), containsString(MISSING_MANDATORY_REQUEST_PARAMETERS.getMessage(TASK_CREATOR_PARAMETER)));
+        assertThat(response.getStatus(), equalTo(400));
     }
 
     @Test
     public void afterSendingTaskWithMissingRunAt_Grakn400IsThrown(){
         Response response = sendDefaultMinus(TASK_RUN_AT_PARAMETER);
 
-        assertThat(exception(response), containsString(MISSING_MANDATORY_REQUEST_PARAMETERS.getMessage(TASK_RUN_AT_PARAMETER)));
-        assertThat(response.statusCode(), equalTo(400));
+        assertThat(response.getEntity().toString(), containsString(MISSING_MANDATORY_REQUEST_PARAMETERS.getMessage(TASK_RUN_AT_PARAMETER)));
+        assertThat(response.getStatus(), equalTo(400));
     }
 
     @Test
@@ -189,8 +183,8 @@ public class TasksControllerTest {
                 )
         );
 
-        assertThat(exception(response), containsString("Exception on Grakn engine"));
-        assertThat(response.statusCode(), equalTo(400));
+        assertThat(response.getEntity().toString(), containsString("Exception on Grakn engine"));
+        assertThat(response.getStatus(), equalTo(400));
     }
 
     @Test
@@ -224,9 +218,9 @@ public class TasksControllerTest {
                 )
         );
 
-        String exception = response.getBody().as(Json.class, jsonMapper).at("exception").asString();
+        String exception = Json.read(response.getEntity().toString()).at("exception").asString();
         assertThat(exception, containsString(UNAVAILABLE_TASK_CLASS.getMessage(this.getClass().getName())));
-        assertThat(response.statusCode(), equalTo(400));
+        assertThat(response.getStatus(), equalTo(400));
     }
 
     @Test
@@ -240,7 +234,7 @@ public class TasksControllerTest {
                 )
         );
 
-        assertThat(response.statusCode(), equalTo(400));
+        assertThat(response.getStatus(), equalTo(400));
     }
 
     @Test
@@ -248,7 +242,7 @@ public class TasksControllerTest {
         Json malformed = Json.make(defaultParams())
                 .set(CONFIGURATION_PARAM, "non-json configuration");
         Response response = send(ImmutableList.of(malformed));
-        assertThat(response.statusCode(), equalTo(400));
+        assertThat(response.getStatus(), equalTo(400));
     }
 
     @Test
@@ -260,7 +254,7 @@ public class TasksControllerTest {
                         TASK_RUN_AT_PARAMETER, ""
                 )
         );
-        assertThat(response.statusCode(), equalTo(400));
+        assertThat(response.getStatus(), equalTo(400));
     }
 
     @Test
@@ -269,11 +263,11 @@ public class TasksControllerTest {
         params.put(TASK_PRIORITY_PARAMETER, TaskState.Priority.LOW.name());
         int nOfTasks = 10;
         Response response = send(Collections.emptyMap(), params, nOfTasks);
-        assertThat(response.statusCode(), equalTo(HttpStatus.SC_OK));
+        assertThat(response.getStatus(), equalTo(HttpStatus.SC_OK));
         verify(manager, times(nOfTasks))
                 .runTask(argThat(argument -> argument.priority().equals(TaskState.Priority.LOW)),
                         any());
-        assertThat(Json.read(response.getBody().asString()).asJsonList().stream()
+        assertThat(Json.read(response.getEntity().toString()).asJsonList().stream()
                 .allMatch(e -> e.at("code").asInteger() == HttpStatus.SC_OK), equalTo(true));
     }
 
@@ -286,14 +280,14 @@ public class TasksControllerTest {
                 // Missing required parameter
                 TASK_CLASS_NAME_PARAMETER, ShortExecutionMockTask.class.getName(),
                 TASK_RUN_AT_PARAMETER, ""), nOfTasks);
-        assertThat(response.statusCode(), equalTo(HttpStatus.SC_BAD_REQUEST));
+        assertThat(response.getStatus(), equalTo(HttpStatus.SC_BAD_REQUEST));
     }
 
     @Test
     public void afterSendingBulkWithNoTask_OkAndEmptyResponse(){
         Response response = send(ImmutableList.of());
-        assertThat(response.statusCode(), equalTo(HttpStatus.SC_OK));
-        assertThat(Json.read(response.body().asString()), equalTo(Json.array()));
+        assertThat(response.getStatus(), equalTo(HttpStatus.SC_OK));
+        assertThat(Json.read(response.getEntity().toString()), equalTo(Json.array()));
     }
 
     @Test
@@ -303,7 +297,7 @@ public class TasksControllerTest {
                 ImmutableMap.of(
                         TASK_CLASS_NAME_PARAMETER, ShortExecutionMockTask.class.getName(),
                         TASK_RUN_AT_PARAMETER, ""));
-        assertThat(response.statusCode(), equalTo(HttpStatus.SC_BAD_REQUEST));
+        assertThat(response.getStatus(), equalTo(HttpStatus.SC_BAD_REQUEST));
     }
 
     @Test
@@ -313,7 +307,7 @@ public class TasksControllerTest {
         when(manager.storage().getState(task.getId())).thenReturn(task);
 
         Response response = get(task.getId());
-        Json json = response.as(Json.class, jsonMapper);
+        Json json = extractJson(response);
 
         assertThat(json.at("id").asString(), equalTo(task.getId().getValue()));
     }
@@ -326,7 +320,7 @@ public class TasksControllerTest {
 
         Response response = get(task.getId());
 
-        assertThat(response.statusCode(), equalTo(200));
+        assertThat(response.getStatus(), equalTo(200));
     }
 
     @Test
@@ -337,7 +331,7 @@ public class TasksControllerTest {
 
         Response response = get(task.getId());
 
-        assertThat(response.contentType(), equalTo(ContentType.APPLICATION_JSON.getMimeType()));
+        assertThat(response.getMetadata().get("Content-Type"), equalTo(ContentType.APPLICATION_JSON.getMimeType()));
     }
 
     @Test
@@ -348,7 +342,7 @@ public class TasksControllerTest {
 
         Response response = get(task.getId());
 
-        assertThat(response.statusCode(), equalTo(404));
+        assertThat(response.getStatus(), equalTo(404));
     }
 
     @Test
@@ -360,7 +354,7 @@ public class TasksControllerTest {
         when(manager.storage().getState(task.getId())).thenReturn(task);
 
         Response response = get(task.getId());
-        Json json = response.as(Json.class, jsonMapper);
+        Json json = extractJson(response);
 
         assertThat(json.at("id").asString(), equalTo(task.getId().getValue()));
         assertThat(json.at(TASK_RUN_INTERVAL_PARAMETER).asLong(), equalTo(task.schedule().interval().get().toMillis()));
@@ -374,7 +368,7 @@ public class TasksControllerTest {
         when(manager.storage().getState(task.getId())).thenReturn(task);
 
         Response response = get(task.getId());
-        Json json = response.as(Json.class, jsonMapper);
+        Json json = extractJson(response);
 
         assertThat(json.at("id").asString(), equalTo(task.getId().getValue()));
     }
@@ -388,7 +382,7 @@ public class TasksControllerTest {
         when(manager.storage().getState(task.getId())).thenReturn(task);
 
         Response response = get(task.getId());
-        Json json = response.as(Json.class, jsonMapper);
+        Json json = Json.read(response.getEntity().toString());
 
         assertThat(json.at("id").asString(), equalTo(task.getId().getValue()));
         assertThat(json.at(TASK_RUN_AT_PARAMETER).asLong(), equalTo(runAt.toEpochMilli()));
@@ -402,7 +396,7 @@ public class TasksControllerTest {
         when(manager.storage().getState(task.getId())).thenReturn(task);
 
         Response response = get(task.getId());
-        Json json = response.as(Json.class, jsonMapper);
+        Json json = Json.read(response.getEntity().toString());
 
         assertThat(json.at("id").asString(), equalTo(task.getId().getValue()));
         assertThat(json.at(TASK_STATUS_PARAMETER).asString(), equalTo(FAILED.name()));
@@ -451,32 +445,20 @@ public class TasksControllerTest {
         return builder.build();
     }
 
-    private Response send(ImmutableList<Json> tasks){
+    private javax.ws.rs.core.Response send(ImmutableList<Json> tasks){
         Json tasksList = Json.object().set("tasks", tasks);
-        RequestSpecification request = with()
-                .config(new RestAssuredConfig().objectMapperConfig(new ObjectMapperConfig(jsonMapper)))
-                .body(tasksList);
-        return request.post(String.format("http://%s%s", ctx.uri(), TASKS));
+        return resources.target(TASKS).request().post(Entity.json(tasksList.toString()));
     }
 
     private Response get(TaskId taskId){
-        return with().get(GET.replace(ID_PARAMETER, taskId.getValue()));
+        return resources.target(GET.replace(ID_PARAMETER, taskId.getValue())).request().get();
     }
 
     private Json makeJsonTask(Map<String, String> configuration, Map<String, String> params) {
         return Json.make(params).set(CONFIGURATION_PARAM, Json.make(configuration));
     }
-
-    public static class JsonMapper implements ObjectMapper{
-
-        @Override
-        public Object deserialize(ObjectMapperDeserializationContext objectMapperDeserializationContext) {
-            return Json.read(objectMapperDeserializationContext.getDataToDeserialize().asString());
-        }
-
-        @Override
-        public Object serialize(ObjectMapperSerializationContext objectMapperSerializationContext) {
-            return objectMapperSerializationContext.getObjectToSerialize().toString();
-        }
+    
+    Json extractJson(Response response) {
+        return Json.read(response.getEntity().toString());
     }
 }

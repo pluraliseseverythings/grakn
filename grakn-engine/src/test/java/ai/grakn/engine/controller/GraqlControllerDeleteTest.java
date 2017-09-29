@@ -19,30 +19,30 @@
 package ai.grakn.engine.controller;
 
 import ai.grakn.GraknTx;
+import static ai.grakn.engine.controller.GraqlControllerReadOnlyTest.exception;
 import ai.grakn.engine.factory.EngineGraknTxFactory;
 import ai.grakn.graql.QueryBuilder;
 import ai.grakn.test.SampleKBContext;
 import ai.grakn.test.kbs.MovieKB;
-import ai.grakn.util.REST;
-import ai.grakn.util.SampleKBLoader;
-import com.codahale.metrics.MetricRegistry;
-import com.jayway.restassured.RestAssured;
-import com.jayway.restassured.response.Response;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
-
-import static ai.grakn.engine.controller.GraqlControllerReadOnlyTest.exception;
 import static ai.grakn.util.ErrorMessage.MISSING_MANDATORY_REQUEST_PARAMETERS;
 import static ai.grakn.util.ErrorMessage.MISSING_REQUEST_BODY;
+import ai.grakn.util.REST;
 import static ai.grakn.util.REST.Request.Graql.INFER;
 import static ai.grakn.util.REST.Request.Graql.MATERIALISE;
 import static ai.grakn.util.REST.Request.KEYSPACE;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_TEXT;
+import ai.grakn.util.SampleKBLoader;
+import com.codahale.metrics.MetricRegistry;
+import com.jayway.restassured.RestAssured;
+import com.jayway.restassured.response.Response;
+import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Test;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
@@ -63,9 +63,9 @@ public class GraqlControllerDeleteTest {
     public static SampleKBContext sampleKB = SampleKBContext.preLoad(MovieKB.get());
 
     @ClassRule
-    public static SparkContext sparkContext = SparkContext.withControllers(spark -> {
-        new GraqlController(mockFactory, spark, new MetricRegistry());
-    });
+    public static final ResourceTestRule resources = ResourceTestRule.builder()
+            .addResource(new GraqlController(mockFactory, new MetricRegistry()))
+            .build();
 
     @Before
     public void setupMock(){

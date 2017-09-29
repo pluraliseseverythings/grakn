@@ -7,7 +7,6 @@ import ai.grakn.engine.tasks.manager.TaskState;
 import ai.grakn.engine.tasks.manager.TaskState.Priority;
 import ai.grakn.engine.tasks.mock.ShortExecutionMockTask;
 import static ai.grakn.util.REST.Response.EXCEPTION;
-import static ai.grakn.util.REST.Response.Graql.ORIGINAL_QUERY;
 import static ai.grakn.util.REST.Response.Graql.RESPONSE;
 import com.jayway.restassured.response.Response;
 import mjson.Json;
@@ -22,14 +21,6 @@ public class Utilities {
         return response.getBody().as(Json.class, new JsonMapper()).at(RESPONSE).asString();
     }
 
-    static Json jsonResponse(Response response) {
-        return response.getBody().as(Json.class, new JsonMapper()).at(RESPONSE);
-    }
-    
-    static String originalQuery(Response response) {
-        return response.getBody().as(Json.class, new JsonMapper()).at(ORIGINAL_QUERY).asString();
-    }
-    
     public static TaskState createTask() {
         return createTask(ShortExecutionMockTask.class);
     }

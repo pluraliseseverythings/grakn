@@ -109,14 +109,16 @@ public class GraknTxOperationException extends GraknException{
      * Thrown when {@code type} has {@code attributeType} as a {@link Type#key(AttributeType)} and a {@link Type#attribute(AttributeType)}
      */
     public static GraknTxOperationException duplicateHas(Type type, AttributeType attributeType){
-        return new GraknTxOperationException(ErrorMessage.CANNOT_BE_KEY_AND_RESOURCE.getMessage(type.getLabel(), attributeType.getLabel()));
+        return new GraknTxOperationException(
+                ErrorMessage.CANNOT_BE_KEY_AND_RESOURCE.getMessage(type.getLabel(), attributeType.getLabel()));
     }
 
     /**
      * Thrown when setting {@code superType} as the super type of {@code type} and a loop is created
      */
     public static GraknTxOperationException loopCreated(SchemaConcept type, SchemaConcept superElement){
-        throw new GraknTxOperationException(ErrorMessage.SUPER_LOOP_DETECTED.getMessage(type.getLabel(), superElement.getLabel()));
+        throw new GraknTxOperationException(
+                ErrorMessage.SUPER_LOOP_DETECTED.getMessage(type.getLabel(), superElement.getLabel()));
     }
 
     /**
@@ -124,14 +126,16 @@ public class GraknTxOperationException extends GraknException{
      * {@link ai.grakn.concept.Entity}
      */
     public static GraknTxOperationException invalidCasting(Object concept, Class type){
-        throw new GraknTxOperationException(ErrorMessage.INVALID_OBJECT_TYPE.getMessage(concept, type));
+        throw new GraknTxOperationException(
+                ErrorMessage.INVALID_OBJECT_TYPE.getMessage(concept, type));
     }
 
     /**
      * Thrown when creating a resource whose value {@code object} does not match it's resource's  {@code dataType}.
      */
     public static GraknTxOperationException invalidResourceValue(Object object, AttributeType.DataType dataType){
-        return new GraknTxOperationException(ErrorMessage.INVALID_DATATYPE.getMessage(object, dataType.getVertexProperty().getDataType().getName()));
+        return new GraknTxOperationException(
+                ErrorMessage.INVALID_DATATYPE.getMessage(object, dataType.getVertexProperty().getDataType().getName()));
     }
 
     /**
@@ -139,21 +143,24 @@ public class GraknTxOperationException extends GraknException{
      */
     public static GraknTxOperationException unsupportedDataType(Object value) {
         String supported = AttributeType.DataType.SUPPORTED_TYPES.keySet().stream().collect(Collectors.joining(","));
-        return new GraknTxOperationException(ErrorMessage.INVALID_DATATYPE.getMessage(value.getClass().getName(), supported));
+        return new GraknTxOperationException(
+                ErrorMessage.INVALID_DATATYPE.getMessage(value.getClass().getName(), supported));
     }
 
     /**
      * Thrown when attempting to mutate a property which is immutable
      */
     public static GraknTxOperationException immutableProperty(Object oldValue, Object newValue, Enum vertexProperty){
-        return new GraknTxOperationException(ErrorMessage.IMMUTABLE_VALUE.getMessage(oldValue, newValue, vertexProperty.name()));
+        return new GraknTxOperationException(
+                ErrorMessage.IMMUTABLE_VALUE.getMessage(oldValue, newValue, vertexProperty.name()));
     }
 
     /**
      * Thrown when trying to set a {@code value} on the {@code resource} which does not conform to it's regex
      */
     public static GraknTxOperationException regexFailure(AttributeType attributeType, String value, String regex){
-        return new GraknTxOperationException(ErrorMessage.REGEX_INSTANCE_FAILURE.getMessage(regex, attributeType.getLabel(), value));
+        return new GraknTxOperationException(
+                ErrorMessage.REGEX_INSTANCE_FAILURE.getMessage(regex, attributeType.getLabel(), value));
     }
 
     /**

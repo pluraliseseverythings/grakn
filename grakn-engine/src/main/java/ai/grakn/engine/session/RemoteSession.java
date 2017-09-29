@@ -22,28 +22,40 @@ import ai.grakn.Grakn;
 import ai.grakn.GraknSession;
 import ai.grakn.engine.user.UsersHandler;
 import ai.grakn.util.REST;
-import mjson.Json;
-import org.eclipse.jetty.websocket.api.Session;
-import org.eclipse.jetty.websocket.api.WebSocketAdapter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
-import java.util.HashMap;
-import java.util.Map;
-
 import static ai.grakn.util.REST.RemoteShell.ACTION;
 import static ai.grakn.util.REST.RemoteShell.ACTION_INIT;
 import static ai.grakn.util.REST.RemoteShell.PASSWORD;
 import static ai.grakn.util.REST.RemoteShell.USERNAME;
+import com.codahale.metrics.annotation.ExceptionMetered;
+import com.codahale.metrics.annotation.Metered;
+import com.codahale.metrics.annotation.Timed;
+import java.util.HashMap;
+import java.util.Map;
+import javax.annotation.Nullable;
+import javax.websocket.CloseReason;
+import javax.websocket.OnClose;
+import javax.websocket.OnMessage;
+import javax.websocket.server.ServerEndpoint;
+import mjson.Json;
 import static org.apache.commons.lang.exception.ExceptionUtils.getFullStackTrace;
+import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.WebSocketAdapter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Web socket for running a Graql shell
  *
  * @author Felix Chapman
  */
+@Metered
+@Timed
+@ExceptionMetered
+@ServerEndpoint(RemoteSession.SHELL_REMOTE)
 public class RemoteSession extends WebSocketAdapter {
+
+    static final String SHELL_REMOTE = "/shell/remote";
+
     private final Map<Session, GraqlSession> sessions = new HashMap<>();
     private final Logger LOG = LoggerFactory.getLogger(RemoteSession.class);
     private final @Nullable UsersHandler usersHandler;
@@ -60,8 +72,10 @@ public class RemoteSession extends WebSocketAdapter {
         return new RemoteSession(usersHandler);
     }
 
-    @Override
-    public void onWebSocketClose(int statusCode, String reason) {
+    @OnClose
+    public void onWebSocketClose(CloseReason closeReason) {
+        int statusCode = closeReason.getCloseCode().getCode();
+        String reason = closeReason.getReasonPhrase();
         String message = "Websocket closed, code: " + statusCode + ", reason: " + reason;
         // 1000 = Normal close, 1001 = Going away
         if (statusCode == 1000 || statusCode == 1001) {
@@ -72,7 +86,7 @@ public class RemoteSession extends WebSocketAdapter {
         sessions.remove(getSession()).close();
     }
 
-    @Override
+    @OnMessage
     public void onWebSocketText(String message) {
         try {
             LOG.debug("Received message: " + message);

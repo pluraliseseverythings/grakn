@@ -130,7 +130,8 @@ public abstract class GraknTxAbstract<G extends Graph> implements GraknTx, Grakn
 
     //----------------------------- Transaction Specific
     private final ThreadLocal<TxCache> localConceptLog = new ThreadLocal<>();
-    private @Nullable GraphTraversalSource graphTraversalSource = null;
+    private @Nullable
+    GraphTraversalSource graphTraversalSource = null;
 
     public GraknTxAbstract(G graph, Keyspace keyspace, String engineUri, Properties properties) {
         this.graph = graph;

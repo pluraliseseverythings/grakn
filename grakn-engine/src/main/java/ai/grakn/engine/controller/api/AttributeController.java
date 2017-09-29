@@ -23,27 +23,27 @@ import ai.grakn.GraknTxType;
 import ai.grakn.Keyspace;
 import ai.grakn.concept.Attribute;
 import ai.grakn.concept.AttributeType;
+import static ai.grakn.engine.controller.util.Requests.extractJsonField;
 import ai.grakn.engine.factory.EngineGraknTxFactory;
+import ai.grakn.engine.util.EngineUtil;
+import ai.grakn.util.REST.Request;
+import static ai.grakn.util.REST.Request.ATTRIBUTE_OBJECT_JSON_FIELD;
+import static ai.grakn.util.REST.Request.ATTRIBUTE_TYPE_LABEL_PARAMETER_PATH;
+import static ai.grakn.util.REST.Request.CONCEPT_ID_JSON_FIELD;
+import static ai.grakn.util.REST.Request.KEYSPACE_PARAM;
+import static ai.grakn.util.REST.Request.VALUE_JSON_FIELD;
+import static ai.grakn.util.REST.WebPath.Api.ATTRIBUTE_TYPE;
+import java.util.Optional;
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.Response.Status;
 import mjson.Json;
-import org.apache.commons.httpclient.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import spark.Request;
-import spark.Response;
-import spark.Service;
-
-import java.util.Optional;
-
-import static ai.grakn.engine.controller.util.Requests.extractJsonField;
-import static ai.grakn.engine.controller.util.Requests.mandatoryBody;
-import static ai.grakn.engine.controller.util.Requests.mandatoryPathParameter;
-import static ai.grakn.engine.controller.util.Requests.mandatoryQueryParameter;
-import static ai.grakn.util.REST.Request.ATTRIBUTE_OBJECT_JSON_FIELD;
-import static ai.grakn.util.REST.Request.ATTRIBUTE_TYPE_LABEL_PARAMETER;
-import static ai.grakn.util.REST.Request.CONCEPT_ID_JSON_FIELD;
-import static ai.grakn.util.REST.Request.VALUE_JSON_FIELD;
-import static ai.grakn.util.REST.Request.KEYSPACE;
-import static ai.grakn.util.REST.WebPath.Api.ATTRIBUTE_TYPE;
 
 /**
  * <p>
@@ -52,23 +52,25 @@ import static ai.grakn.util.REST.WebPath.Api.ATTRIBUTE_TYPE;
  *
  * @author Ganeshwara Herawan Hananda
  */
-
+@Path("/")
 public class AttributeController {
     private final EngineGraknTxFactory factory;
     private static final Logger LOG = LoggerFactory.getLogger(AttributeController.class);
 
-    public AttributeController(EngineGraknTxFactory factory, Service spark) {
+    public AttributeController(EngineGraknTxFactory factory) {
         this.factory = factory;
 
-        spark.post(ATTRIBUTE_TYPE + "/" + ATTRIBUTE_TYPE_LABEL_PARAMETER, this::postAttribute);
     }
 
-    private Json postAttribute(Request request, Response response) {
+    @POST
+    @Path(ATTRIBUTE_TYPE + "/" + ATTRIBUTE_TYPE_LABEL_PARAMETER_PATH)
+    public Json postAttribute(
+            @QueryParam(KEYSPACE_PARAM) String keyspace,
+            @PathParam(Request.ATTRIBUTE_TYPE_LABEL_PARAMETER) String attributeTypeLabel,
+            @javax.ws.rs.core.Context HttpServletRequest request) {
         LOG.debug("postAttribute - request received.");
-        String attributeTypeLabel = mandatoryPathParameter(request, ATTRIBUTE_TYPE_LABEL_PARAMETER);
-        Json requestBody = Json.read(mandatoryBody(request));
+        Json requestBody = Json.read(EngineUtil.readBody(request));
         String attributeValue = extractJsonField(requestBody, VALUE_JSON_FIELD).asString();
-        String keyspace = mandatoryQueryParameter(request, KEYSPACE);
         LOG.debug("postAttribute - attempting to find attributeType " + attributeTypeLabel + " in keyspace " + keyspace);
         try (GraknTx tx = factory.tx(Keyspace.of(keyspace), GraknTxType.WRITE)) {
             Optional<AttributeType> attributeTypeOptional = Optional.ofNullable(tx.getAttributeType(attributeTypeLabel));
@@ -81,12 +83,10 @@ public class AttributeController {
                 String jsonConceptId = attribute.getId().getValue();
                 Object jsonAttributeValue = attribute.getValue();
                 LOG.debug("postAttribute - attribute " + jsonConceptId + " of attributeType " + attributeTypeLabel + " added. request processed");
-                response.status(HttpStatus.SC_OK);
                 return attributeJson(jsonConceptId, jsonAttributeValue);
             } else {
                 LOG.debug("postAttribute - attributeType " + attributeTypeLabel + " NOT found.");
-                response.status(HttpStatus.SC_BAD_REQUEST);
-                return Json.nil();
+                throw new WebApplicationException(Status.BAD_REQUEST);
             }
         }
     }

@@ -21,16 +21,31 @@ package ai.grakn.engine.controller;
 
 import ai.grakn.engine.TaskId;
 import ai.grakn.engine.TaskStatus;
+import static ai.grakn.engine.TaskStatus.FAILED;
+import static ai.grakn.engine.controller.util.Requests.mandatoryQueryParameter;
 import ai.grakn.engine.tasks.BackgroundTask;
 import ai.grakn.engine.tasks.manager.TaskConfiguration;
 import ai.grakn.engine.tasks.manager.TaskManager;
 import ai.grakn.engine.tasks.manager.TaskSchedule;
+import static ai.grakn.engine.tasks.manager.TaskSchedule.recurring;
 import ai.grakn.engine.tasks.manager.TaskState;
-import ai.grakn.exception.GraknBackendException;
+import ai.grakn.engine.util.EngineUtil;
 import ai.grakn.exception.GraknServerException;
 import ai.grakn.util.ConcurrencyUtil;
 import ai.grakn.util.REST;
+import static ai.grakn.util.REST.Request.LIMIT_PARAM;
+import static ai.grakn.util.REST.Request.OFFSET_PARAM;
+import static ai.grakn.util.REST.Request.TASK_CLASS_NAME_PARAMETER;
+import static ai.grakn.util.REST.Request.TASK_CREATOR_PARAMETER;
+import static ai.grakn.util.REST.Request.TASK_RUN_WAIT_PARAMETER;
+import static ai.grakn.util.REST.Request.TASK_STATUS_PARAMETER;
+import static ai.grakn.util.REST.Response.ContentType.APPLICATION_JSON;
+import static ai.grakn.util.REST.Response.EXCEPTION;
+import static ai.grakn.util.REST.Response.Task.ID;
+import static ai.grakn.util.REST.Response.Task.STACK_TRACE;
+import static ai.grakn.util.REST.Response.Task.STATUS;
 import com.codahale.metrics.MetricRegistry;
+import static com.codahale.metrics.MetricRegistry.name;
 import com.codahale.metrics.Timer;
 import com.codahale.metrics.Timer.Context;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -38,21 +53,10 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
-import mjson.Json;
-import org.apache.commons.httpclient.HttpStatus;
-import org.apache.http.entity.ContentType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import spark.Request;
-import spark.Response;
-import spark.Service;
-
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
-import javax.ws.rs.Path;
+import static java.lang.Long.parseLong;
 import java.time.Duration;
 import java.time.Instant;
+import static java.time.Instant.ofEpochMilli;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -63,23 +67,24 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
-
-import static ai.grakn.engine.TaskStatus.FAILED;
-import static ai.grakn.engine.controller.util.Requests.mandatoryQueryParameter;
-import static ai.grakn.engine.tasks.manager.TaskSchedule.recurring;
-import static ai.grakn.util.REST.Request.TASK_RUN_WAIT_PARAMETER;
-import static ai.grakn.util.REST.Response.ContentType.APPLICATION_JSON;
-import static ai.grakn.util.REST.Response.EXCEPTION;
-import static ai.grakn.util.REST.Response.Task.ID;
-import static ai.grakn.util.REST.Response.Task.STACK_TRACE;
-import static ai.grakn.util.REST.Response.Task.STATUS;
-import static ai.grakn.util.REST.WebPath.Tasks.GET;
-import static ai.grakn.util.REST.WebPath.Tasks.STOP;
-import static ai.grakn.util.REST.WebPath.Tasks.TASKS;
-import static com.codahale.metrics.MetricRegistry.name;
-import static java.lang.Long.parseLong;
-import static java.time.Instant.ofEpochMilli;
 import static java.util.stream.Collectors.toList;
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.DefaultValue;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
+import mjson.Json;
+import org.apache.commons.httpclient.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * <p>
@@ -105,7 +110,7 @@ public class TasksController {
     private final Timer getTaskTimer;
     private final Timer getTasksTimer;
 
-    public TasksController(Service spark, TaskManager manager, MetricRegistry metricRegistry) {
+    public TasksController(TaskManager manager, MetricRegistry metricRegistry) {
         if (manager==null) {
             throw GraknServerException.internalError("Task manager has not been instantiated.");
         }
@@ -116,13 +121,6 @@ public class TasksController {
         this.stopTaskTimer = metricRegistry.timer(name(TasksController.class, "stop-task"));
         this.createTasksTimer = metricRegistry.timer(name(TasksController.class, "create-tasks"));
 
-        spark.get(TASKS, this::getTasks);
-        spark.get(GET, this::getTask);
-        spark.put(STOP, this::stopTask);
-        spark.post(TASKS, this::createTasks);
-
-        spark.exception(GraknServerException.class, (e, req, res) -> handleNotFoundInStorage(e, res));
-        spark.exception(GraknBackendException.class, (e, req, res) -> handleNotFoundInStorage(e, res));
         ThreadFactory namedThreadFactory = new ThreadFactoryBuilder()
                 .setNameFormat("grakn-task-controller-%d").build();
         this.executor = Executors.newFixedThreadPool(MAX_THREADS, namedThreadFactory);
@@ -130,33 +128,25 @@ public class TasksController {
 
     @GET
     @Path("/")
+    @Produces(APPLICATION_JSON)
     @ApiOperation(value = "Get tasks matching a specific TaskStatus.")
     @ApiImplicitParams({
-            @ApiImplicitParam(name = REST.Request.TASK_STATUS_PARAMETER, value = "TaskStatus as string.", dataType = "string", paramType = "query"),
-            @ApiImplicitParam(name = REST.Request.TASK_CLASS_NAME_PARAMETER, value = "Class name of BackgroundTask Object.", dataType = "string", paramType = "query"),
-            @ApiImplicitParam(name = REST.Request.TASK_CREATOR_PARAMETER, value = "Who instantiated these tasks.", dataType = "string", paramType = "query"),
-            @ApiImplicitParam(name = REST.Request.LIMIT_PARAM, value = "Limit the number of entries in the returned result.", dataType = "integer", paramType = "query"),
-            @ApiImplicitParam(name = REST.Request.OFFSET_PARAM, value = "Use in conjunction with limit for pagination.", dataType = "integer", paramType = "query")
+            @ApiImplicitParam(name = TASK_STATUS_PARAMETER, value = "TaskStatus as string.", dataType = "string", paramType = "query"),
+            @ApiImplicitParam(name = TASK_CLASS_NAME_PARAMETER, value = "Class name of BackgroundTask Object.", dataType = "string", paramType = "query"),
+            @ApiImplicitParam(name = TASK_CREATOR_PARAMETER, value = "Who instantiated these tasks.", dataType = "string", paramType = "query"),
+            @ApiImplicitParam(name = LIMIT_PARAM, value = "Limit the number of entries in the returned result.", dataType = "integer", paramType = "query"),
+            @ApiImplicitParam(name = OFFSET_PARAM, value = "Use in conjunction with limit for pagination.", dataType = "integer", paramType = "query")
     })
-    private Json getTasks(Request request, Response response) {
+    public String getTasks(
+            @QueryParam(TASK_STATUS_PARAMETER) @DefaultValue("") String taskStatus,
+            @QueryParam(TASK_CLASS_NAME_PARAMETER) String className,
+            @QueryParam(TASK_CREATOR_PARAMETER) String creator,
+            @QueryParam(OFFSET_PARAM) @DefaultValue("0") int offset,
+            @QueryParam(LIMIT_PARAM) @DefaultValue("0") int limit) {
         TaskStatus status = null;
-        String className = request.queryParams(REST.Request.TASK_CLASS_NAME_PARAMETER);
-        String creator = request.queryParams(REST.Request.TASK_CREATOR_PARAMETER);
-        int limit = 0;
-        int offset = 0;
-
-        if (request.queryParams(REST.Request.LIMIT_PARAM) != null) {
-            limit = Integer.parseInt(request.queryParams(REST.Request.LIMIT_PARAM));
+        if (!taskStatus.isEmpty()) {
+            status = TaskStatus.valueOf(taskStatus);
         }
-
-        if (request.queryParams(REST.Request.OFFSET_PARAM) != null) {
-            offset = Integer.parseInt(request.queryParams(REST.Request.OFFSET_PARAM));
-        }
-
-        if (request.queryParams(REST.Request.TASK_STATUS_PARAMETER) != null) {
-            status = TaskStatus.valueOf(request.queryParams(REST.Request.TASK_STATUS_PARAMETER));
-        }
-
         Context context = getTasksTimer.time();
         try {
             Json result = Json.array();
@@ -164,10 +154,7 @@ public class TasksController {
                     .getTasks(status, className, creator, null, limit, offset).stream()
                     .map(this::serialiseStateSubset)
                     .forEach(result::add);
-
-            response.status(HttpStatus.SC_OK);
-            response.type(APPLICATION_JSON);
-            return result;
+            return result.asString();
         } finally {
             context.stop();
         }
@@ -175,15 +162,13 @@ public class TasksController {
 
     @GET
     @Path("/{id}")
+    @Produces(APPLICATION_JSON)
     @ApiOperation(value = "Get the state of a specific task by its ID.", produces = "application/json")
     @ApiImplicitParam(name = REST.Request.UUID_PARAMETER, value = "ID of task.", required = true, dataType = "string", paramType = "path")
-    private Json getTask(Request request, Response response) {
-        String id = request.params("id");
+    public String getTask(@PathParam("id") String id) {
         Context context = getTaskTimer.time();
         try {
-            response.status(200);
-            response.type(APPLICATION_JSON);
-            return serialiseStateSubset(manager.storage().getState(TaskId.of(id)));
+            return serialiseStateSubset(manager.storage().getState(TaskId.of(id))).asString();
         } finally {
             context.stop();
         }
@@ -191,27 +176,25 @@ public class TasksController {
 
     @PUT
     @Path("/{id}/stop")
+    @Produces(APPLICATION_JSON)
     @ApiOperation(value = "Stop a running or paused task.")
     @ApiImplicitParam(name = REST.Request.UUID_PARAMETER, value = "ID of task.", required = true, dataType = "string", paramType = "path")
-    private Json stopTask(Request request, Response response) {
-        String id = request.params(REST.Request.ID_PARAMETER);
+    public void stopTask(@PathParam("id") String id) {
         try (Context context = stopTaskTimer.time()) {
             manager.stopTask(TaskId.of(id));
-            response.status(HttpStatus.SC_OK);
-            response.type(APPLICATION_JSON);
-            return Json.object();
         }
     }
 
     @POST
     @Path("/")
+    @Produces(APPLICATION_JSON)
+    @Consumes(APPLICATION_JSON)
     @ApiOperation(value = "Schedule a set of tasks.")
     @ApiImplicitParams({
             @ApiImplicitParam(name = REST.Request.TASKS_PARAM, value = "JSON Array containing an ordered list of task parameters and comfigurations.", required = true, dataType = "List", paramType = "body")
     })
-    private Json createTasks(Request request, Response response) {
-
-        Json requestBodyAsJson = bodyAsJson(request);
+    public Response createTasks(@javax.ws.rs.core.Context HttpServletRequest request) {
+        Json requestBodyAsJson = bodyAsJson(EngineUtil.readBody(request));
         // This covers the previous behaviour. It looks like a quirk of the testing
         // client library we are using. Consider deprecating it.
         if (requestBodyAsJson.has("value")) {
@@ -228,7 +211,6 @@ public class TasksController {
         LOG.debug("Received request {}", request);
         List<Json> taskJsonList = requestBodyAsJson.at(REST.Request.TASKS_PARAM).asJsonList();
         Json responseJson = Json.array();
-        response.type(ContentType.APPLICATION_JSON.getMimeType());
         // We need to return the list of taskStates in order
         // so the client can relate the state to each element in the request.
         final Timer.Context context = createTasksTimer.time();
@@ -236,22 +218,21 @@ public class TasksController {
             List<TaskStateWithConfiguration> taskStates = parseTasks(taskJsonList);
             CompletableFuture<List<Json>> completableFuture = executeTasks(taskStates, wait);
             try {
-                return buildResponseForTasks(response, responseJson, completableFuture);
+                return buildResponseForTasks(responseJson, completableFuture);
             } catch (TimeoutException | InterruptedException e) {
                 LOG.error("Task interrupted", e);
-                response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR);
-                return Json.object();
+                throw new WebApplicationException(Status.INTERNAL_SERVER_ERROR);
             } catch (Exception e) {
                 LOG.error("Exception while processing batch of tasks", e);
-                response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR);
-                return Json.object();
+                throw new WebApplicationException(Status.INTERNAL_SERVER_ERROR);
             }
         } finally {
             context.stop();
         }
     }
 
-    private Json buildResponseForTasks(Response response, Json responseJson,
+    private Response buildResponseForTasks(
+            Json responseJson,
             CompletableFuture<List<Json>> completableFuture)
             throws InterruptedException, java.util.concurrent.ExecutionException, TimeoutException {
         List<Json> results = completableFuture
@@ -265,13 +246,12 @@ public class TasksController {
             }
         }
         if (!hasFailures) {
-            response.status(HttpStatus.SC_OK);
+            return Response.ok().entity(responseJson).build();
         } else if (responseJson.asJsonList().size() > 0) {
-            response.status(HttpStatus.SC_ACCEPTED);
+            return Response.status(Status.ACCEPTED).entity(responseJson).build();
         } else {
-            response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+            throw new WebApplicationException(Status.INTERNAL_SERVER_ERROR);
         }
-        return responseJson;
     }
 
     private List<TaskStateWithConfiguration> parseTasks(List<Json> taskJsonList) {
@@ -352,9 +332,9 @@ public class TasksController {
         Function<String, Optional<Json>> extractor = p -> Optional
                 .ofNullable(singleTaskJson.at(p));
         String className = mandatoryQueryParameter(extractor,
-                REST.Request.TASK_CLASS_NAME_PARAMETER).asString();
+                TASK_CLASS_NAME_PARAMETER).asString();
         String createdBy = mandatoryQueryParameter(extractor,
-                REST.Request.TASK_CREATOR_PARAMETER).asString();
+                TASK_CREATOR_PARAMETER).asString();
         String runAtTime = mandatoryQueryParameter(extractor,
                 REST.Request.TASK_RUN_AT_PARAMETER).asString();
         String intervalParam = extractor.apply(REST.Request.TASK_RUN_INTERVAL_PARAMETER)
@@ -389,8 +369,7 @@ public class TasksController {
         return TaskState.of(clazz, createdBy, schedule, priority);
     }
 
-    private Json bodyAsJson(Request request) {
-        String requestBody = request.body();
+    private Json bodyAsJson(String requestBody) {
         if (requestBody.isEmpty()) {
             return Json.object();
         }
@@ -421,21 +400,6 @@ public class TasksController {
             
             throw GraknServerException.invalidTask(className);
 
-        }
-    }
-
-    /**
-     * Error accessing or retrieving a task from storage. This throws a 404 Task Not Found to the user.
-     * @param exception {@link GraknServerException} thrown by the server
-     * @param response The response object providing functionality for modifying the response
-     */
-    private void handleNotFoundInStorage(Exception exception, Response response){
-        //TODO: Fix this. This is needed because of a mixture of exceptions being thrown within the context of this controller
-        if(exception instanceof GraknServerException){
-            response.status(((GraknServerException) exception).getStatus());
-            response.body(Json.object("exception", exception.getMessage()).toString());
-        } else {
-            response.status(404);
         }
     }
 

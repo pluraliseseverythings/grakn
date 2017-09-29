@@ -185,7 +185,8 @@ public class GraknTxTest extends TxTestBase {
         try{
             graph.putEntityType("A Thing");
         } catch (GraknTxOperationException e){
-            if(e.getMessage().equals(ErrorMessage.TX_CLOSED_ON_ACTION.getMessage("closed", graph.getKeyspace()))){
+            if(e.getMessage().equals(
+                    ErrorMessage.TX_CLOSED_ON_ACTION.getMessage("closed", graph.getKeyspace()))){
                 errorThrown = true;
             }
         }

@@ -196,7 +196,8 @@ public class GraknEngineConfig {
          if(prop.containsKey(property)) {
              return prop.getProperty(property);
          } else {
-            throw new RuntimeException(ErrorMessage.UNAVAILABLE_PROPERTY.getMessage(property, configFilePath));
+            throw new RuntimeException(
+                    ErrorMessage.UNAVAILABLE_PROPERTY.getMessage(property, configFilePath));
          }
     }
 

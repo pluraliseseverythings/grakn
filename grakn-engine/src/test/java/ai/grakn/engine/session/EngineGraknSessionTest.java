@@ -1,26 +1,30 @@
 package ai.grakn.engine.session;
 
 import ai.grakn.Grakn;
-import ai.grakn.GraknTx;
 import ai.grakn.GraknSession;
+import ai.grakn.GraknTx;
 import ai.grakn.GraknTxType;
 import ai.grakn.engine.EngineTestHelper;
 import ai.grakn.engine.GraknEngineConfig;
+import ai.grakn.engine.GraknEngineServer;
+import ai.grakn.engine.GraknEngineServerConfiguration;
 import ai.grakn.engine.factory.EngineGraknTxFactory;
 import ai.grakn.exception.GraknTxOperationException;
 import ai.grakn.test.GraknTestSetup;
 import ai.grakn.util.ErrorMessage;
 import ai.grakn.util.SampleKBLoader;
+import io.dropwizard.testing.ResourceHelpers;
+import io.dropwizard.testing.junit.DropwizardAppRule;
 import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeFalse;
+import org.junit.BeforeClass;
+import org.junit.ClassRule;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.ExpectedException;
 
 public class EngineGraknSessionTest {
 
@@ -33,9 +37,14 @@ public class EngineGraknSessionTest {
 
     @BeforeClass
     public static void beforeClass() {
-        EngineTestHelper.engineWithKBs();
         graknFactory = EngineGraknTxFactory.createAndLoadSystemSchema(EngineTestHelper.config().getProperties());
     }
+
+    @ClassRule
+    public static final DropwizardAppRule<GraknEngineServerConfiguration> RULE =
+            new DropwizardAppRule<>(GraknEngineServer.class,
+                    ResourceHelpers.resourceFilePath("../conf/config.yaml"));
+
 
     @AfterClass
     public static void afterClass() {

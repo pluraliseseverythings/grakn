@@ -21,27 +21,13 @@ package ai.grakn.engine.controller.util;
 import ai.grakn.exception.GraknServerException;
 import java.util.Optional;
 import java.util.function.Function;
-
 import mjson.Json;
-import spark.Request;
 
 /**
  * Utility class for handling http requests
  * @author Domenico Corapi
  */
 public class Requests {
-    /**
-     * Given a {@link Request} object retrieve the value of the {@param parameter} argument. If it is not present
-     * in the request query, return a 400 to the client.
-     *
-     * @param request information about the HTTP request
-     * @param parameter value to retrieve from the HTTP request
-     * @return value of the given parameter
-     */
-    public static String mandatoryQueryParameter(Request request, String parameter){
-        return mandatoryQueryParameter(p -> queryParameter(request, p), parameter);
-    }
-
     /**
      * Given a {@link Function}, retrieve the value of the {@param parameter} by applying that function
      * @param extractParameterFunction function used to extract the parameter
@@ -51,44 +37,6 @@ public class Requests {
     public static <T> T mandatoryQueryParameter(Function<String, Optional<T>> extractParameterFunction, String parameter) {
         return extractParameterFunction.apply(parameter).orElseThrow(() ->
                 GraknServerException.requestMissingParameters(parameter));
-    }
-
-    /**
-     * Given a {@link Request}, retrieve the value of the {@param parameter}
-     * @param request information about the HTTP request
-     * @param parameter value to retrieve from the HTTP request
-     * @return value of the given parameter
-     */
-    public static Optional<String> queryParameter(Request request, String parameter){
-        return Optional.ofNullable(request.queryParams(parameter));
-    }
-
-
-    /**
-     * Given a {@link Request), retreive the value of the request body. If the request does not have a body,
-     * return a 400 (missing parameter) to the client.
-     *
-     * @param request information about the HTTP request
-     * @return value of the request body as a string
-     */
-    public static String mandatoryBody(Request request){
-        return Optional.ofNullable(request.body()).filter(s -> !s.isEmpty()).orElseThrow(
-                GraknServerException::requestMissingBody);
-    }
-
-    /**
-     * Given a {@link Function}, retrieve the value of the {@param parameter} by applying that function
-     * @param extractParameterFunction function used to extract the parameter
-     * @param parameter value to retrieve from the HTTP request
-     * @return value of the given parameter
-     */
-
-    public static String mandatoryPathParameter(Request request, String parameter) {
-        // TODO: add new method GraknServerException.requestMissingPathParameters
-        String parameterValue = Optional.ofNullable(request.params(parameter)).orElseThrow(() ->
-            GraknServerException.requestMissingParameters(parameter));
-
-        return parameterValue;
     }
 
     /**

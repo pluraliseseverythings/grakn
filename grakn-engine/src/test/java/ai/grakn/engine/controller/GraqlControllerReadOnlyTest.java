@@ -26,30 +26,17 @@ import ai.grakn.engine.factory.EngineGraknTxFactory;
 import ai.grakn.graql.Printer;
 import ai.grakn.graql.Query;
 import ai.grakn.graql.QueryBuilder;
+import static ai.grakn.graql.internal.hal.HALUtils.BASETYPE_PROPERTY;
+import static ai.grakn.graql.internal.hal.HALUtils.ID_PROPERTY;
+import static ai.grakn.graql.internal.hal.HALUtils.TYPE_PROPERTY;
 import ai.grakn.graql.internal.printer.Printers;
 import ai.grakn.test.GraknTestSetup;
 import ai.grakn.test.SampleKBContext;
 import ai.grakn.test.kbs.MovieKB;
-import ai.grakn.util.REST;
-import com.codahale.metrics.MetricRegistry;
-import com.jayway.restassured.RestAssured;
-import com.jayway.restassured.response.Response;
-import mjson.Json;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.FixMethodOrder;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.junit.runners.MethodSorters;
-
-import java.util.Collections;
-
-import static ai.grakn.graql.internal.hal.HALUtils.BASETYPE_PROPERTY;
-import static ai.grakn.graql.internal.hal.HALUtils.ID_PROPERTY;
-import static ai.grakn.graql.internal.hal.HALUtils.TYPE_PROPERTY;
 import static ai.grakn.util.ErrorMessage.MISSING_MANDATORY_REQUEST_PARAMETERS;
 import static ai.grakn.util.ErrorMessage.MISSING_REQUEST_BODY;
 import static ai.grakn.util.ErrorMessage.UNSUPPORTED_CONTENT_TYPE;
+import ai.grakn.util.REST;
 import static ai.grakn.util.REST.Request.Graql.INFER;
 import static ai.grakn.util.REST.Request.Graql.LIMIT_EMBEDDED;
 import static ai.grakn.util.REST.Request.Graql.MATERIALISE;
@@ -59,7 +46,14 @@ import static ai.grakn.util.REST.Response.ContentType.APPLICATION_HAL;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_JSON_GRAQL;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_TEXT;
 import static ai.grakn.util.REST.Response.EXCEPTION;
+import com.codahale.metrics.MetricRegistry;
+import com.jayway.restassured.RestAssured;
+import com.jayway.restassured.response.Response;
+import io.dropwizard.testing.junit.ResourceTestRule;
+import java.util.Collections;
+import java.util.Properties;
 import static junit.framework.TestCase.assertTrue;
+import mjson.Json;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -68,6 +62,12 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.stringContainsInOrder;
 import static org.junit.Assume.assumeTrue;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.FixMethodOrder;
+import org.junit.Ignore;
+import org.junit.Test;
+import org.junit.runners.MethodSorters;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -90,14 +90,14 @@ public class GraqlControllerReadOnlyTest {
     private static final JsonMapper jsonMapper = new JsonMapper();
 
     @ClassRule
-    public static SampleKBContext sampleKB = SampleKBContext.preLoad(MovieKB.get());
+    public static final ResourceTestRule resources = ResourceTestRule.builder()
+            .addResource(new SystemController(mockFactory, new GraknEngineStatus(), new MetricRegistry()))
+            .addResource(new GraqlController(mockFactory, new MetricRegistry()))
+            .build();
+
 
     @ClassRule
-    public static SparkContext sparkContext = SparkContext.withControllers(spark -> {
-        MetricRegistry metricRegistry = new MetricRegistry();
-        new SystemController(mockFactory, spark, new GraknEngineStatus(), metricRegistry);
-        new GraqlController(mockFactory, spark, metricRegistry);
-    });
+    public static SampleKBContext sampleKB = SampleKBContext.preLoad(MovieKB.get());
 
     @Before
     public void setupMock() {
@@ -117,7 +117,7 @@ public class GraqlControllerReadOnlyTest {
 
         when(mockFactory.tx(eq(mockTx.getKeyspace()), any())).thenReturn(mockTx);
         when(mockFactory.systemKeyspace()).thenReturn(mockSystemKeyspace);
-        when(mockFactory.properties()).thenReturn(sparkContext.config().getProperties());
+        when(mockFactory.properties()).thenReturn(new Properties());
     }
 
     @Test

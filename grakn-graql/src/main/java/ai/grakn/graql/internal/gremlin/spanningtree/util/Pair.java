@@ -58,8 +58,9 @@ public class Pair<T, V> {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
-                .add("first", first)
-                .add("second", second).toString();
+        return "Pair{" +
+                "first=" + first +
+                ", second=" + second +
+                '}';
     }
 }

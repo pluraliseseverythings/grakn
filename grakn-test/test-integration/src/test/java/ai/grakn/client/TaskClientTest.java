@@ -19,13 +19,30 @@
 
 package ai.grakn.client;
 
+import ai.grakn.engine.TaskId;
+import ai.grakn.engine.TaskStatus;
 import static ai.grakn.engine.TaskStatus.CREATED;
+import ai.grakn.engine.controller.TasksController;
+import ai.grakn.engine.tasks.manager.TaskManager;
+import ai.grakn.engine.tasks.manager.TaskState;
+import ai.grakn.engine.tasks.manager.TaskStateStorage;
+import ai.grakn.engine.tasks.mock.ShortExecutionMockTask;
+import ai.grakn.exception.GraknBackendException;
 import static ai.grakn.test.engine.tasks.BackgroundTaskTestUtils.createTask;
 import com.codahale.metrics.MetricRegistry;
+import io.dropwizard.testing.junit.DropwizardClientRule;
+import java.time.Duration;
+import java.time.Instant;
 import static java.time.Instant.now;
 import static junit.framework.TestCase.assertFalse;
+import mjson.Json;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsEqual.equalTo;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.ExpectedException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -34,41 +51,23 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import ai.grakn.engine.TaskId;
-import ai.grakn.engine.TaskStatus;
-import ai.grakn.engine.controller.TasksController;
-import ai.grakn.engine.tasks.manager.TaskManager;
-import ai.grakn.engine.tasks.manager.TaskState;
-import ai.grakn.engine.tasks.manager.TaskStateStorage;
-import ai.grakn.engine.tasks.mock.ShortExecutionMockTask;
-import ai.grakn.exception.GraknBackendException;
-import ai.grakn.test.SparkContext;
-
-import java.time.Duration;
-import java.time.Instant;
-import mjson.Json;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-
 public class TaskClientTest {
 
-    private static TaskClient client;
     private static TaskManager manager = mock(TaskManager.class);
+
+    @ClassRule
+    public static final DropwizardClientRule dropwizard = new DropwizardClientRule(new TasksController(manager, new MetricRegistry()));
 
     @Rule
     public final ExpectedException exception = ExpectedException.none();
 
-    @ClassRule
-    public static final SparkContext ctx = SparkContext.withControllers(spark -> {
-        new TasksController(spark, manager, new MetricRegistry());
-    });
+    private TaskClient client;
+
 
     @Before
     public void setUp() {
-        client = TaskClient.of("localhost", ctx.port());
+
+        client = TaskClient.of(dropwizard.baseUri().getHost(), dropwizard.baseUri().getPort());
         when(manager.storage()).thenReturn(mock(TaskStateStorage.class));
     }
 
@@ -90,37 +89,6 @@ public class TaskClientTest {
                 && argument.schedule().interval().get().equals(interval)
                 && argument.creator().equals(creator)),
                 argThat(argument -> argument.json().toString().equals(configuration.toString())));
-    }
-
-    @Test
-    public void whenSendingATaskAndServerIsUnavailable_TheClientThrowsAnUnavailableException(){
-        ctx.stop();
-
-        try {
-            Class<?> taskClass = ShortExecutionMockTask.class;
-            String creator = this.getClass().getName();
-            Instant runAt = now();
-            Json configuration = Json.nil();
-
-            exception.expect(GraknBackendException.class);
-            client.sendTask(taskClass, creator, runAt, null, configuration, false);
-        } finally {
-            ctx.start();
-        }
-    }
-
-    @Test
-    public void whenGettingStatusOfATaskAndServerIsUnavailable_TheClientThrowsAnUnavailableException(){
-        ctx.stop();
-
-        try {
-            TaskState task = createTask();
-
-            exception.expect(GraknBackendException.class);
-            client.getStatus(task.getId());
-        } finally {
-            ctx.start();
-        }
     }
 
     @Test

@@ -1,0 +1,16 @@
+server:
+  requestLog:
+    appenders:
+      - type: console
+
+
+
+server:
+  adminMinThreads: 1
+  adminMaxThreads: 64
+  applicationConnectors:
+    - type: http
+      port: 4567
+  adminConnectors:
+    - type: http
+      port: 4568

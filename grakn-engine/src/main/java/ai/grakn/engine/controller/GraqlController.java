@@ -19,47 +19,20 @@
 package ai.grakn.engine.controller;
 
 import ai.grakn.GraknTx;
+import static ai.grakn.GraknTxType.WRITE;
 import ai.grakn.Keyspace;
 import ai.grakn.engine.factory.EngineGraknTxFactory;
+import ai.grakn.engine.util.EngineUtil;
 import ai.grakn.exception.GraknServerException;
-import ai.grakn.exception.GraknTxOperationException;
-import ai.grakn.exception.GraqlQueryException;
-import ai.grakn.exception.GraqlSyntaxException;
-import ai.grakn.exception.InvalidKBException;
 import ai.grakn.graql.AggregateQuery;
 import ai.grakn.graql.ComputeQuery;
 import ai.grakn.graql.GetQuery;
 import ai.grakn.graql.Printer;
 import ai.grakn.graql.Query;
 import ai.grakn.graql.analytics.PathQuery;
-import ai.grakn.graql.internal.printer.Printers;
-import ai.grakn.util.REST;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiImplicitParam;
-import io.swagger.annotations.ApiImplicitParams;
-import io.swagger.annotations.ApiOperation;
-import mjson.Json;
-import org.apache.http.entity.ContentType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import spark.Request;
-import spark.Response;
-import spark.Service;
-
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import java.util.ArrayList;
-
-import static ai.grakn.GraknTxType.WRITE;
-import static ai.grakn.engine.controller.util.Requests.mandatoryBody;
-import static ai.grakn.engine.controller.util.Requests.mandatoryQueryParameter;
-import static ai.grakn.engine.controller.util.Requests.queryParameter;
 import static ai.grakn.graql.internal.hal.HALBuilder.renderHALArrayData;
 import static ai.grakn.graql.internal.hal.HALBuilder.renderHALConceptData;
+import ai.grakn.graql.internal.printer.Printers;
 import static ai.grakn.util.REST.Request.Graql.INFER;
 import static ai.grakn.util.REST.Request.Graql.LIMIT_EMBEDDED;
 import static ai.grakn.util.REST.Request.Graql.MATERIALISE;
@@ -68,8 +41,28 @@ import static ai.grakn.util.REST.Request.KEYSPACE;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_HAL;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_JSON_GRAQL;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_TEXT;
+import com.codahale.metrics.MetricRegistry;
 import static com.codahale.metrics.MetricRegistry.name;
-import static java.lang.Boolean.parseBoolean;
+import com.codahale.metrics.Timer;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiImplicitParam;
+import io.swagger.annotations.ApiImplicitParams;
+import io.swagger.annotations.ApiOperation;
+import java.util.ArrayList;
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.DefaultValue;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import mjson.Json;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -79,8 +72,8 @@ import static java.lang.Boolean.parseBoolean;
  *
  * @author Marco Scoppetta, alexandraorth
  */
-@Path("/graph/graql")
-@Api(value = "/graph/graql", description = "Endpoints used to query the graph by ID or Graql get query and build HAL objects.")
+@Path("/kb/graql")
+@Api(value = "/kb/graql", description = "Endpoints used to query the graph by ID or Graql get query and build HAL objects.")
 @Produces({"application/json", "text/plain"})
 public class GraqlController {
 
@@ -89,37 +82,31 @@ public class GraqlController {
     private final Timer executeGraqlGetTimer;
     private final Timer executeGraqlPostTimer;
 
-    public GraqlController(EngineGraknTxFactory factory, Service spark,
+    public GraqlController(EngineGraknTxFactory factory,
                            MetricRegistry metricRegistry) {
         this.factory = factory;
         this.executeGraqlGetTimer = metricRegistry.timer(name(GraqlController.class, "execute-graql-get"));
         this.executeGraqlPostTimer = metricRegistry.timer(name(GraqlController.class, "execute-graql-post"));
-
-        spark.post(REST.WebPath.KB.ANY_GRAQL, this::executeGraql);
-        spark.get(REST.WebPath.KB.GRAQL,    this::executeGraqlGET);
-
-        spark.exception(GraqlQueryException.class, (e, req, res) -> handleError(400, e, res));
-        spark.exception(GraqlSyntaxException.class, (e, req, res) -> handleError(400, e, res));
-
-        // Handle invalid type castings and invalid insertions
-        spark.exception(GraknTxOperationException.class, (e, req, res) -> handleError(422, e, res));
-        spark.exception(InvalidKBException.class, (e, req, res) -> handleError(422, e, res));
     }
 
     @POST
     @Path("/execute")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
     @ApiOperation(value = "Execute an arbitrary Graql queryEndpoints used to query the graph by ID or Graql get query and build HAL objects.")
-    private Object executeGraql(Request request, Response response) {
-        String queryString = mandatoryBody(request);
-        Keyspace keyspace = Keyspace.of(mandatoryQueryParameter(request, KEYSPACE));
-        boolean infer = parseBoolean(mandatoryQueryParameter(request, INFER));
-        boolean materialise = parseBoolean(mandatoryQueryParameter(request, MATERIALISE));
-        int limitEmbedded = queryParameter(request, LIMIT_EMBEDDED).map(Integer::parseInt).orElse(-1);
+    public Response executeGraql(
+            @QueryParam(KEYSPACE) String ks,
+            @QueryParam(INFER) boolean infer,
+            @QueryParam(MATERIALISE) boolean materialise,
+            @QueryParam(LIMIT_EMBEDDED) @DefaultValue("-1") int limitEmbedded,
+            @Context HttpServletRequest request) {
+        String queryString = EngineUtil.readBody(request);
+        Keyspace keyspace = Keyspace.of(ks);
         String acceptType = getAcceptType(request);
 
         try(GraknTx graph = factory.tx(keyspace, WRITE); Timer.Context context = executeGraqlPostTimer.time()) {
             Query<?> query = graph.graql().materialise(materialise).infer(infer).parse(queryString);
-            Object resp = respond(response, acceptType, executeQuery(graph.getKeyspace(), limitEmbedded, query, acceptType));
+            Response resp = respond( acceptType, executeQuery(graph.getKeyspace(), limitEmbedded, query, acceptType));
             graph.commit();
             return resp;
         }
@@ -127,6 +114,7 @@ public class GraqlController {
     
     @GET
     @Path("/")
+    @Produces(MediaType.APPLICATION_JSON)
     @ApiOperation(
             value = "Executes graql query on the server and build a representation for each concept in the query result. " +
                     "Return type is determined by the provided accept type: application/graql+json, application/hal+json or application/text")
@@ -136,12 +124,14 @@ public class GraqlController {
             @ApiImplicitParam(name = INFER,       value = "Should reasoner with the current query.", required = true, dataType = "boolean", paramType = "query"),
             @ApiImplicitParam(name = MATERIALISE, value = "Should reasoner materialise results with the current query.", required = true, dataType = "boolean", paramType = "query")
     })
-    private Object executeGraqlGET(Request request, Response response) {
-        String keyspace = mandatoryQueryParameter(request, KEYSPACE);
-        String queryString = mandatoryQueryParameter(request, QUERY);
-        boolean infer = parseBoolean(mandatoryQueryParameter(request, INFER));
-        boolean materialise = parseBoolean(mandatoryQueryParameter(request, MATERIALISE));
-        int limitEmbedded = queryParameter(request, LIMIT_EMBEDDED).map(Integer::parseInt).orElse(-1);
+    public Response executeGraqlGET(
+            @QueryParam(KEYSPACE) String ks,
+            @QueryParam(QUERY) String queryString,
+            @QueryParam(INFER) boolean infer,
+            @QueryParam(MATERIALISE) boolean materialise,
+            @QueryParam(LIMIT_EMBEDDED) @DefaultValue("-1") int limitEmbedded,
+            @Context HttpServletRequest request) {
+        Keyspace keyspace = Keyspace.of(ks);
         String acceptType = getAcceptType(request);
 
         try(GraknTx graph = factory.tx(keyspace, WRITE); Timer.Context context = executeGraqlGetTimer.time()) {
@@ -152,22 +142,8 @@ public class GraqlController {
             if(!validContentType(acceptType, query)) throw GraknServerException.contentTypeQueryMismatch(acceptType, query);
 
             Object responseBody = executeGET(graph.getKeyspace(), limitEmbedded, query, acceptType);
-            return respond(response, acceptType, responseBody);
+            return respond(acceptType, responseBody);
         }
-    }
-
-    /**
-     * Handle any {@link Exception} that are thrown by the server. Configures and returns
-     * the correct JSON response with the given status.
-     *
-     * @param exception exception thrown by the server
-     * @param response response to the client
-     */
-    private static void handleError(int status, Exception exception, Response response){
-        LOG.error("REST error", exception);
-        response.status(status);
-        response.body(Json.object("exception", exception.getMessage()).toString());
-        response.type(ContentType.APPLICATION_JSON.getMimeType());
     }
 
     /**
@@ -190,19 +166,8 @@ public class GraqlController {
         return true;
     }
 
-    /**
-     * Format the response with the correct content type based on the request.
-     *
-     * @param contentType content type being provided in the response
-     * @param response response to the client
-     * @return formatted result of the executed query
-     */
-    private Object respond(Response response, String contentType, Object responseBody){
-        response.type(contentType);
-        response.body(responseBody.toString());
-        response.status(200);
-
-        return responseBody;
+    private Response respond(String contentType, Object responseBody){
+        return Response.ok().type(contentType).entity(responseBody).build();
     }
 
     /**
@@ -234,10 +199,10 @@ public class GraqlController {
         return acceptType.equals(APPLICATION_TEXT) ? formatted : Json.read(formatted);
     }
 
-    static String getAcceptType(Request request) {
+    static String getAcceptType(HttpServletRequest request) {
         // TODO - we are not handling multiple values here and we should!
-        String header = request.headers("Accept");
-        return header == null ? "" : request.headers("Accept").split(",")[0];
+        String header = request.getHeader("Accept");
+        return header == null ? "" : request.getHeader("Accept").split(",")[0];
     }
 
     /**

@@ -435,7 +435,8 @@ class ValidateGlobalRules {
                 .flatMap(v -> v.getTypeLabels().stream()).forEach(typeLabel -> {
                     SchemaConcept schemaConcept = graph.getSchemaConcept(typeLabel);
                     if(schemaConcept == null){
-                        errors.add(ErrorMessage.VALIDATION_RULE_MISSING_ELEMENTS.getMessage(side, rule.getLabel(), typeLabel));
+                        errors.add(
+                                ErrorMessage.VALIDATION_RULE_MISSING_ELEMENTS.getMessage(side, rule.getLabel(), typeLabel));
                     } else {
                         if(Schema.VertexProperty.RULE_WHEN.equals(side)){
                             if (schemaConcept.isType()){

@@ -22,21 +22,15 @@ import ai.grakn.GraknTxType;
 import ai.grakn.engine.GraknEngineConfig;
 import ai.grakn.engine.GraknEngineServer;
 import ai.grakn.engine.SystemKeyspace;
-import ai.grakn.engine.util.JWTHandler;
+import static ai.grakn.graql.Graql.var;
 import ai.grakn.util.EmbeddedRedis;
 import com.jayway.restassured.RestAssured;
-import org.slf4j.LoggerFactory;
-import spark.Service;
-
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Set;
-
-import static ai.grakn.engine.GraknEngineConfig.JWT_SECRET_PROPERTY;
-import static ai.grakn.engine.GraknEngineServer.configureSpark;
-import static ai.grakn.graql.Graql.var;
+import org.slf4j.LoggerFactory;
 
 /**
  * <p>
@@ -112,15 +106,6 @@ public abstract class GraknTestEngineSetup {
         LOG.info("engine stopped.");
 
         // There is no way to stop the embedded Casssandra, no such API offered.
-    }
-
-    static Service startSpark(GraknEngineConfig config) {
-        LOG.info("starting spark on port " + config.uri());
-
-        Service spark = Service.ignite();
-        configureSpark(spark, config, JWTHandler.create(config.getProperty(JWT_SECRET_PROPERTY)));
-        setRestAssuredUri(config);
-        return spark;
     }
 
     private static void clearGraphs(GraknEngineServer server) {

@@ -3,24 +3,13 @@ package ai.grakn.engine.controller;
 import ai.grakn.concept.ConceptId;
 import ai.grakn.engine.GraknEngineConfig;
 import ai.grakn.engine.factory.EngineGraknTxFactory;
+import static ai.grakn.graql.Graql.var;
 import ai.grakn.graql.Printer;
 import ai.grakn.graql.Query;
 import ai.grakn.graql.internal.printer.Printers;
 import ai.grakn.test.SampleKBContext;
 import ai.grakn.test.kbs.MovieKB;
 import ai.grakn.util.REST;
-import com.codahale.metrics.MetricRegistry;
-import com.jayway.restassured.RestAssured;
-import com.jayway.restassured.response.Response;
-import mjson.Json;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
-
-import java.util.function.Function;
-
-import static ai.grakn.graql.Graql.var;
 import static ai.grakn.util.REST.Request.Graql.INFER;
 import static ai.grakn.util.REST.Request.Graql.LIMIT_EMBEDDED;
 import static ai.grakn.util.REST.Request.Graql.MATERIALISE;
@@ -28,8 +17,18 @@ import static ai.grakn.util.REST.Request.KEYSPACE;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_HAL;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_JSON_GRAQL;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_TEXT;
+import com.codahale.metrics.MetricRegistry;
+import com.jayway.restassured.RestAssured;
+import com.jayway.restassured.response.Response;
+import io.dropwizard.testing.junit.ResourceTestRule;
+import java.util.function.Function;
+import mjson.Json;
+import org.junit.Assert;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Test;
 
 public class GraqlControllerTest {
 
@@ -63,11 +62,14 @@ public class GraqlControllerTest {
     @ClassRule
     public static SampleKBContext sampleKB = SampleKBContext.preLoad(MovieKB.get());
 
+    private static final EngineGraknTxFactory factory = EngineGraknTxFactory.createAndLoadSystemSchema(GraknEngineConfig.create().getProperties());
+
     @ClassRule
-    public static SparkContext sparkContext = SparkContext.withControllers(spark -> {
-        EngineGraknTxFactory factory = EngineGraknTxFactory.createAndLoadSystemSchema(GraknEngineConfig.create().getProperties());
-        new GraqlController(factory, spark, new MetricRegistry());
-    });
+    public static final ResourceTestRule resources = ResourceTestRule.builder()
+            .addResource(new GraqlController(factory, new MetricRegistry()))
+            .build();
+
+
 
     @Before
     public void setUp() {

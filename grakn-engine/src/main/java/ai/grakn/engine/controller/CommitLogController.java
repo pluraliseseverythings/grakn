@@ -24,24 +24,22 @@ import ai.grakn.engine.postprocessing.UpdatingInstanceCountTask;
 import ai.grakn.engine.tasks.manager.TaskConfiguration;
 import ai.grakn.engine.tasks.manager.TaskManager;
 import ai.grakn.engine.tasks.manager.TaskState;
-import ai.grakn.util.REST;
-import io.swagger.annotations.ApiImplicitParam;
-import io.swagger.annotations.ApiImplicitParams;
-import io.swagger.annotations.ApiOperation;
-import mjson.Json;
-import spark.Request;
-import spark.Response;
-import spark.Service;
-
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import java.util.concurrent.CompletableFuture;
-
-import static ai.grakn.engine.controller.util.Requests.mandatoryQueryParameter;
+import ai.grakn.engine.util.EngineUtil;
 import static ai.grakn.util.REST.Request.COMMIT_LOG_COUNTING;
 import static ai.grakn.util.REST.Request.COMMIT_LOG_FIXING;
 import static ai.grakn.util.REST.Request.KEYSPACE_PARAM;
+import io.swagger.annotations.ApiImplicitParam;
+import io.swagger.annotations.ApiImplicitParams;
+import io.swagger.annotations.ApiOperation;
+import java.util.concurrent.CompletableFuture;
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import mjson.Json;
 
 /**
  * A controller which core submits commit logs to so we can post-process jobs for cleanup.
@@ -50,45 +48,35 @@ import static ai.grakn.util.REST.Request.KEYSPACE_PARAM;
  */
 //TODO Implement delete
 public class CommitLogController {
+
+    private static final String COMMIT_LOG = "/commit_log";
     private final TaskManager manager;
     private final int postProcessingDelay;
 
-    public CommitLogController(Service spark, int postProcessingDelay, TaskManager manager){
+    public CommitLogController(int postProcessingDelay, TaskManager manager){
         this.postProcessingDelay = postProcessingDelay;
         this.manager = manager;
-
-        spark.post(REST.WebPath.COMMIT_LOG_URI, this::submitConcepts);
-        spark.delete(REST.WebPath.COMMIT_LOG_URI, this::deleteConcepts);
     }
 
-
-    @DELETE
-    @Path("/commit_log")
-    @ApiOperation(value = "Delete all the post processing jobs for a specific keyspace")
-    @ApiImplicitParam(name = "keyspace", value = "The key space of an opened graph", required = true, dataType = "string", paramType = "path")
-    private String deleteConcepts(Request req, Response res){
-        return "Delete not implemented";
-    }
-
-
-    @GET
-    @Path("/commit_log")
+    @POST
+    @Path(COMMIT_LOG)
+    @Produces(MediaType.APPLICATION_JSON)
     @ApiOperation(value = "Submits post processing jobs for a specific keyspace")
     @ApiImplicitParams({
-        @ApiImplicitParam(name = "keyspace", value = "The key space of an opened graph", required = true, dataType = "string", paramType = "path"),
+        @ApiImplicitParam(name = KEYSPACE_PARAM, value = "The key space of an opened graph", required = true, dataType = "string", paramType = "path"),
         @ApiImplicitParam(name = COMMIT_LOG_FIXING, value = "A Json Array of IDs representing concepts to be post processed", required = true, dataType = "string", paramType = "body"),
         @ApiImplicitParam(name = COMMIT_LOG_COUNTING, value = "A Json Array types with new and removed instances", required = true, dataType = "string", paramType = "body")
     })
-    private Json submitConcepts(Request req, Response res) {
-        Keyspace keyspace = Keyspace.of(mandatoryQueryParameter(req, KEYSPACE_PARAM));
+    public String submitConcepts(@QueryParam(KEYSPACE_PARAM) String ks, @Context HttpServletRequest req) {
+        Keyspace keyspace = Keyspace.of(ks);
 
         // Instances to post process
         TaskState postProcessingTaskState = PostProcessingTask.createTask(this.getClass(), postProcessingDelay);
-        TaskConfiguration postProcessingTaskConfiguration = PostProcessingTask.createConfig(keyspace, req.body());
+        TaskConfiguration postProcessingTaskConfiguration = PostProcessingTask.createConfig(keyspace, EngineUtil.readBody(req));
 
         //Instances to count
         TaskState countingTaskState = UpdatingInstanceCountTask.createTask(this.getClass());
-        TaskConfiguration countingTaskConfiguration = UpdatingInstanceCountTask.createConfig(keyspace, req.body());
+        TaskConfiguration countingTaskConfiguration = UpdatingInstanceCountTask.createConfig(keyspace, EngineUtil.readBody(req));
 
         // TODO Use an engine wide executor here
         CompletableFuture.allOf(
@@ -99,7 +87,6 @@ public class CommitLogController {
         return Json.object(
                 "postProcessingTaskId", postProcessingTaskState.getId().getValue(),
                 "countingTaskId", countingTaskState.getId().getValue(),
-                "keyspace", keyspace.getValue()
-        );
+                "keyspace", keyspace.getValue()).asString();
     }
 }

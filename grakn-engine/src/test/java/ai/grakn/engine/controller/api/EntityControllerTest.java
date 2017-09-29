@@ -20,30 +20,29 @@ package ai.grakn.engine.controller.api;
 
 import ai.grakn.GraknTx;
 import ai.grakn.GraknTxType;
-import ai.grakn.engine.controller.SparkContext;
 import ai.grakn.engine.factory.EngineGraknTxFactory;
 import ai.grakn.test.SampleKBContext;
 import ai.grakn.test.kbs.MovieKB;
-import ai.grakn.util.SampleKBLoader;
-import com.jayway.restassured.response.Response;
-import mjson.Json;
-import org.apache.commons.httpclient.HttpStatus;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.mockito.Mockito;
-
 import static ai.grakn.util.REST.Request.CONCEPT_ID_JSON_FIELD;
 import static ai.grakn.util.REST.Request.ENTITY_OBJECT_JSON_FIELD;
 import static ai.grakn.util.REST.Request.KEYSPACE;
 import static ai.grakn.util.REST.WebPath.Api.API_PREFIX;
 import static ai.grakn.util.REST.WebPath.Api.ENTITY_TYPE;
+import ai.grakn.util.SampleKBLoader;
 import static com.jayway.restassured.RestAssured.with;
+import com.jayway.restassured.response.Response;
+import io.dropwizard.testing.junit.ResourceTestRule;
+import mjson.Json;
+import org.apache.commons.httpclient.HttpStatus;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Test;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import org.mockito.Mockito;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -64,10 +63,10 @@ public class EntityControllerTest {
     public static SampleKBContext sampleKB = SampleKBContext.preLoad(MovieKB.get());
 
     @ClassRule
-    public static SparkContext sparkContext = SparkContext.withControllers(spark -> {
-        new AttributeController(mockFactory, spark);
-        new EntityController(mockFactory, spark);
-    });
+    public static final ResourceTestRule resources = ResourceTestRule.builder()
+            .addResource(new AttributeController(mockFactory))
+//            .addResource(new EntityController(mockFactory))
+            .build();
 
     @Before
     public void setupMock(){

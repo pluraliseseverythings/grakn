@@ -31,6 +31,9 @@ import ai.grakn.engine.SystemKeyspace;
 import ai.grakn.engine.factory.EngineGraknTxFactory;
 import ai.grakn.exception.GraknServerException;
 import ai.grakn.util.ErrorMessage;
+import static ai.grakn.util.REST.Request.FORMAT;
+import static ai.grakn.util.REST.Request.KEYSPACE;
+import static ai.grakn.util.REST.Response.ContentType.APPLICATION_JSON;
 import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.json.MetricsModule;
@@ -42,38 +45,28 @@ import io.prometheus.client.exporter.common.TextFormat;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
-import mjson.Json;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import spark.Request;
-import spark.Response;
-import spark.Service;
-
-import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.Collection;
-import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-
-import static ai.grakn.util.REST.Request.FORMAT;
-import static ai.grakn.util.REST.Request.KEYSPACE;
-import static ai.grakn.util.REST.Request.KEYSPACE_PARAM;
-import static ai.grakn.util.REST.Response.ContentType.APPLICATION_JSON;
-import static ai.grakn.util.REST.WebPath.System.CONFIGURATION;
-import static ai.grakn.util.REST.WebPath.System.DELETE_KEYSPACE;
-import static ai.grakn.util.REST.WebPath.System.INITIALISE;
-import static ai.grakn.util.REST.WebPath.System.KEYSPACES;
-import static ai.grakn.util.REST.WebPath.System.METRICS;
-import static ai.grakn.util.REST.WebPath.System.STATUS;
+import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.DELETE;
+import javax.ws.rs.DefaultValue;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.HttpHeaders;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
+import mjson.Json;
 import static org.apache.http.HttpHeaders.CACHE_CONTROL;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 
@@ -104,7 +97,7 @@ public class SystemController {
     private final ObjectMapper mapper;
     private final CollectorRegistry prometheusRegistry;
 
-    public SystemController(EngineGraknTxFactory factory, Service spark,
+    public SystemController(EngineGraknTxFactory factory,
                             GraknEngineStatus graknEngineStatus, MetricRegistry metricRegistry) {
         this.factory = factory;
         this.graknEngineStatus = graknEngineStatus;
@@ -112,12 +105,6 @@ public class SystemController {
         DropwizardExports prometheusMetricWrapper = new DropwizardExports(metricRegistry);
         this.prometheusRegistry = new CollectorRegistry();
         prometheusRegistry.register(prometheusMetricWrapper);
-        spark.get(KEYSPACES,     this::getKeyspaces);
-        spark.get(CONFIGURATION, this::getConfiguration);
-        spark.get(METRICS, this::getMetrics);
-        spark.get(INITIALISE, this::initialiseSession);
-        spark.get(STATUS, this::getStatus);
-        spark.delete(DELETE_KEYSPACE, this::deleteKeyspace);
 
         final TimeUnit rateUnit = TimeUnit.SECONDS;
         final TimeUnit durationUnit = TimeUnit.SECONDS;
@@ -135,12 +122,12 @@ public class SystemController {
     @Path("/initialise")
     @ApiOperation(value = "Initialise a grakn session - add the keyspace to the system graph and return configured properties.")
     @ApiImplicitParam(name = KEYSPACE, value = "Name of graph to use", required = true, dataType = "string", paramType = "query")
-    private String initialiseSession(Request request, Response response){
-        Keyspace keyspace = Keyspace.of(request.queryParams(KEYSPACE_PARAM));
+    public String initialiseSession(@QueryParam(KEYSPACE) String ks){
+        Keyspace keyspace = Keyspace.of(ks);
         boolean keyspaceInitialised = factory.systemKeyspace().ensureKeyspaceInitialised(keyspace);
 
         if(keyspaceInitialised) {
-            return getConfiguration(request, response);
+            return getConfiguration();
         }
 
         throw GraknServerException.internalError("Unable to instantiate system keyspace " + keyspace);
@@ -150,12 +137,11 @@ public class SystemController {
     @Path("/deleteKeyspace")
     @ApiOperation(value = "Delete a keyspace from the system graph.")
     @ApiImplicitParam(name = KEYSPACE, value = "Name of graph to use", required = true, dataType = "string", paramType = "query")
-    private boolean deleteKeyspace(Request request, Response response){
-        Keyspace keyspace = Keyspace.of(request.queryParams(KEYSPACE_PARAM));
+    public boolean deleteKeyspace(@QueryParam(KEYSPACE) String ks){
+        Keyspace keyspace = Keyspace.of(ks);
         boolean deletionComplete = factory.systemKeyspace().deleteKeyspace(keyspace);
         if(deletionComplete){
             LOG.info("Keyspace {} deleted", keyspace);
-            response.status(200);
             return true;
         } else {
             throw GraknServerException.couldNotDelete(keyspace);
@@ -165,7 +151,7 @@ public class SystemController {
     @GET
     @Path("/configuration")
     @ApiOperation(value = "Get config which is used to build transactions")
-    private String getConfiguration(Request request, Response response) {
+    public String getConfiguration() {
 
         // Make a copy of the properties object
         Properties properties = new Properties();
@@ -185,14 +171,14 @@ public class SystemController {
     @GET
     @Path("/status")
     @ApiOperation(value = "Return the status of the engine: READY, INITIALIZING")
-    private String getStatus(Request request, Response response) {
+    public String getStatus() {
         return graknEngineStatus.isReady() ? "READY" : "INITIALIZING";
     }
 
     @GET
     @Path("/keyspaces")
     @ApiOperation(value = "Get all the key spaces that have been opened")
-    private String getKeyspaces(Request request, Response response) {
+    public String getKeyspaces() {
         try (GraknTx graph = factory.tx(SystemKeyspace.SYSTEM_KB_KEYSPACE, GraknTxType.WRITE)) {
 
             AttributeType<String> keyspaceName = graph.getSchemaConcept(SystemKeyspace.KEYSPACE_RESOURCE);
@@ -201,7 +187,8 @@ public class SystemController {
             graph.<EntityType>getSchemaConcept(SystemKeyspace.KEYSPACE_ENTITY).instances().forEach(keyspace -> {
                 Collection<Attribute<?>> names = keyspace.attributes(keyspaceName).collect(Collectors.toSet());
                 if (names.size() != 1) {
-                    throw GraknServerException.internalError(ErrorMessage.INVALID_SYSTEM_KEYSPACE.getMessage(" keyspace " + keyspace.getId() + " has no unique name."));
+                    throw GraknServerException.internalError(
+                            ErrorMessage.INVALID_SYSTEM_KEYSPACE.getMessage(" keyspace " + keyspace.getId() + " has no unique name."));
                 }
                 result.add(names.iterator().next().getValue());
             });
@@ -218,28 +205,30 @@ public class SystemController {
     @ApiImplicitParams({
             @ApiImplicitParam(name = FORMAT, value = "prometheus", dataType = "string", paramType = "path")
     })
-    private String getMetrics(Request request, Response response) throws IOException {
+    public Response getMetrics(
+            @QueryParam(FORMAT) @DefaultValue(JSON) String dFormat,
+            @Context HttpHeaders header) throws IOException {
+        ResponseBuilder response = Response.ok();
         response.header(CACHE_CONTROL, "must-revalidate,no-cache,no-store");
         response.status(HttpServletResponse.SC_OK);
-        Optional<String> format = Optional.ofNullable(request.queryParams(FORMAT));
-        String dFormat = format.orElse(JSON);
         if (dFormat.equals(PROMETHEUS)) {
             // Prometheus format for the metrics
             response.type(PROMETHEUS_CONTENT_TYPE);
             final Writer writer1 = new StringWriter();
             TextFormat.write004(writer1, this.prometheusRegistry.metricFamilySamples());
-            return writer1.toString();
+            response.entity(writer1.toString());
         } else if (dFormat.equals(JSON)) {
             // Json/Dropwizard format
             response.type(APPLICATION_JSON);
             final ObjectWriter writer = mapper.writer();
             try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
                 writer.writeValue(output, this.metricRegistry);
-                return new String(output.toByteArray(), "UTF-8");
+                response.entity(new String(output.toByteArray(), "UTF-8"));
             }
         } else {
             throw new IllegalArgumentException("Unexpected format " + dFormat);
         }
+        return response.build();
     }
 
 }

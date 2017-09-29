@@ -21,29 +21,30 @@ import ai.grakn.GraknTx;
 import ai.grakn.GraknTxType;
 import ai.grakn.Keyspace;
 import ai.grakn.concept.Rule;
-import ai.grakn.engine.factory.EngineGraknTxFactory;
-import mjson.Json;
-import org.apache.commons.httpclient.HttpStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import spark.Request;
-import spark.Response;
-import spark.Service;
-
-import java.util.Optional;
-
 import static ai.grakn.engine.controller.util.Requests.extractJsonField;
-import static ai.grakn.engine.controller.util.Requests.mandatoryBody;
-import static ai.grakn.engine.controller.util.Requests.mandatoryPathParameter;
-import static ai.grakn.engine.controller.util.Requests.mandatoryQueryParameter;
+import ai.grakn.engine.factory.EngineGraknTxFactory;
+import ai.grakn.engine.util.EngineUtil;
+import ai.grakn.util.REST.Request;
 import static ai.grakn.util.REST.Request.CONCEPT_ID_JSON_FIELD;
-import static ai.grakn.util.REST.Request.KEYSPACE;
+import static ai.grakn.util.REST.Request.KEYSPACE_PARAM;
 import static ai.grakn.util.REST.Request.LABEL_JSON_FIELD;
-import static ai.grakn.util.REST.Request.RULE_LABEL_PARAMETER;
+import static ai.grakn.util.REST.Request.RULE_LABEL_PARAMETER_PATH;
 import static ai.grakn.util.REST.Request.RULE_OBJECT_JSON_FIELD;
 import static ai.grakn.util.REST.Request.THEN_JSON_FIELD;
 import static ai.grakn.util.REST.Request.WHEN_JSON_FIELD;
 import static ai.grakn.util.REST.WebPath.Api.RULE;
+import java.util.Optional;
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.Response.Status;
+import mjson.Json;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * <p>
@@ -57,16 +58,15 @@ public class RuleController {
     private final EngineGraknTxFactory factory;
     private static final Logger LOG = LoggerFactory.getLogger(RuleController.class);
 
-    public RuleController(EngineGraknTxFactory factory, Service spark) {
+    public RuleController(EngineGraknTxFactory factory) {
         this.factory = factory;
-        spark.get(RULE + "/" + RULE_LABEL_PARAMETER, this::getRule);
-        spark.post(RULE, this::postRule);
     }
 
-    private Json getRule(Request request, Response response) {
+    @GET
+    @Path(RULE + "/" + RULE_LABEL_PARAMETER_PATH)
+    public String getRule(@QueryParam(KEYSPACE_PARAM) String keyspace,
+            @PathParam(Request.RULE_LABEL_PARAMETER) String ruleLabel) {
         LOG.debug("getRule - request received.");
-        String ruleLabel = mandatoryPathParameter(request, RULE_LABEL_PARAMETER);
-        String keyspace = mandatoryQueryParameter(request, KEYSPACE);
         LOG.debug("getRule - attempting to find rule " + ruleLabel + " in keyspace " + keyspace);
         try (GraknTx tx = factory.tx(Keyspace.of(keyspace), GraknTxType.READ)) {
             Optional<Rule> rule = Optional.ofNullable(tx.getRule(ruleLabel));
@@ -75,26 +75,26 @@ public class RuleController {
                 String jsonRuleLabel = rule.get().getLabel().getValue();
                 String jsonRuleWhen = rule.get().getWhen().toString();
                 String jsonRuleThen = rule.get().getThen().toString();
-                response.status(HttpStatus.SC_OK);
                 Json responseBody = ruleJson(jsonConceptId, jsonRuleLabel, jsonRuleWhen, jsonRuleThen);
                 LOG.debug("getRule - rule found - " + jsonConceptId + ", " + jsonRuleLabel + ". request processed.");
-                return responseBody;
+                return responseBody.toString();
             } else {
-                response.status(HttpStatus.SC_BAD_REQUEST);
                 LOG.debug("getRule - rule NOT found. request processed.");
-                return Json.nil();
+                throw new WebApplicationException(Status.BAD_REQUEST);
             }
         }
     }
 
-    private Json postRule(Request request, Response response) {
+    @POST
+    public String postRule(
+            @QueryParam(KEYSPACE_PARAM) String keyspace,
+            @javax.ws.rs.core.Context HttpServletRequest request) {
         LOG.debug("postRule - request received.");
-        Json requestBody = Json.read(mandatoryBody(request));
-        String ruleLabel = extractJsonField(requestBody, RULE_OBJECT_JSON_FIELD, LABEL_JSON_FIELD).asString();
-        String when = extractJsonField(requestBody, RULE_OBJECT_JSON_FIELD, WHEN_JSON_FIELD).asString();
-        String then = extractJsonField(requestBody, RULE_OBJECT_JSON_FIELD, THEN_JSON_FIELD).asString();
+        Json requestBodyJSON = Json.read(EngineUtil.readBody(request));
+        String ruleLabel = extractJsonField(requestBodyJSON, RULE_OBJECT_JSON_FIELD, LABEL_JSON_FIELD).toString();
+        String when = extractJsonField(requestBodyJSON, RULE_OBJECT_JSON_FIELD, WHEN_JSON_FIELD).toString();
+        String then = extractJsonField(requestBodyJSON, RULE_OBJECT_JSON_FIELD, THEN_JSON_FIELD).toString();
 
-        String keyspace = mandatoryQueryParameter(request, KEYSPACE);
         LOG.debug("postRule - attempting to add a new rule " + ruleLabel + " on keyspace " + keyspace);
         try (GraknTx tx = factory.tx(Keyspace.of(keyspace), GraknTxType.WRITE)) {
             Rule rule = tx.putRule(
@@ -109,10 +109,7 @@ public class RuleController {
             String jsonRuleWhen = rule.getWhen().toString();
             String jsonRuleThen = rule.getThen().toString();
             LOG.debug("postRule - rule " + jsonRuleLabel + " with id " + jsonConceptId + " added. request processed.");
-            response.status(HttpStatus.SC_OK);
-            Json responseBody = ruleJson(jsonConceptId, jsonRuleLabel, jsonRuleWhen, jsonRuleThen);
-
-            return responseBody;
+            return ruleJson(jsonConceptId, jsonRuleLabel, jsonRuleWhen, jsonRuleThen).asString();
         }
     }
 

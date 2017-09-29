@@ -43,7 +43,8 @@ public class GraknEngineConfigTest {
         String property = "invalid";
 
         exception.expect(RuntimeException.class);
-        exception.expectMessage(ErrorMessage.UNAVAILABLE_PROPERTY.getMessage(property, GraknEngineConfig.getConfigFilePath()));
+        exception.expectMessage(
+                ErrorMessage.UNAVAILABLE_PROPERTY.getMessage(property, GraknEngineConfig.getConfigFilePath()));
 
         configuration.getProperty(property);
     }

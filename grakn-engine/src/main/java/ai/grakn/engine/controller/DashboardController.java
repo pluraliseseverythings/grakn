@@ -19,47 +19,41 @@
 package ai.grakn.engine.controller;
 
 import ai.grakn.GraknTx;
+import static ai.grakn.GraknTxType.READ;
 import ai.grakn.Keyspace;
 import ai.grakn.concept.Concept;
 import ai.grakn.concept.ConceptId;
 import ai.grakn.concept.Role;
+import static ai.grakn.engine.controller.ConceptController.retrieveExistingConcept;
 import ai.grakn.engine.factory.EngineGraknTxFactory;
 import ai.grakn.exception.GraknServerException;
 import ai.grakn.graql.GetQuery;
 import ai.grakn.graql.Query;
-import ai.grakn.util.REST;
-import io.swagger.annotations.ApiImplicitParam;
-import io.swagger.annotations.ApiImplicitParams;
-import io.swagger.annotations.ApiOperation;
-import mjson.Json;
-import spark.Request;
-import spark.Response;
-import spark.Service;
-
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
-
-import static ai.grakn.GraknTxType.READ;
-import static ai.grakn.engine.controller.ConceptController.mandatoryRequestParameter;
-import static ai.grakn.engine.controller.ConceptController.retrieveExistingConcept;
-import static ai.grakn.engine.controller.ConceptController.validateRequest;
-import static ai.grakn.engine.controller.util.Requests.mandatoryQueryParameter;
-import static ai.grakn.engine.controller.util.Requests.queryParameter;
 import static ai.grakn.graql.internal.hal.HALBuilder.HALExploreConcept;
 import static ai.grakn.graql.internal.hal.HALBuilder.explanationAnswersToHAL;
+import ai.grakn.util.REST;
 import static ai.grakn.util.REST.Request.Concept.LIMIT_EMBEDDED;
 import static ai.grakn.util.REST.Request.Concept.OFFSET_EMBEDDED;
 import static ai.grakn.util.REST.Request.Graql.QUERY;
-import static ai.grakn.util.REST.Request.ID_PARAMETER;
 import static ai.grakn.util.REST.Request.KEYSPACE;
-import static ai.grakn.util.REST.Response.ContentType.APPLICATION_HAL;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_JSON;
 import static ai.grakn.util.REST.Response.Graql.IDENTIFIER;
-import static ai.grakn.util.REST.Response.Graql.ORIGINAL_QUERY;
+import static ai.grakn.util.REST.Response.Task.ID;
+import io.swagger.annotations.ApiImplicitParam;
+import io.swagger.annotations.ApiImplicitParams;
+import io.swagger.annotations.ApiOperation;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.stream.Collectors;
 import static java.util.stream.Collectors.toList;
+import javax.ws.rs.DefaultValue;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import mjson.Json;
 
 /**
  * <p>
@@ -81,16 +75,13 @@ public class DashboardController {
 
     private final EngineGraknTxFactory factory;
 
-    public DashboardController(EngineGraknTxFactory factory, Service spark) {
+    public DashboardController(EngineGraknTxFactory factory) {
         this.factory = factory;
-
-        spark.get(REST.WebPath.Dashboard.TYPES + ID_PARAMETER, this::typesOfConcept);
-        spark.get(REST.WebPath.Dashboard.EXPLORE + ID_PARAMETER, this::exploreConcept);
-        spark.get(REST.WebPath.Dashboard.EXPLAIN, this::explainConcept);
     }
 
     @GET
     @Path("explore/{id}")
+    @Produces(APPLICATION_JSON)
     @ApiOperation(
             value = "Return the HAL Explore representation for the given concept.")
     @ApiImplicitParams({
@@ -99,26 +90,20 @@ public class DashboardController {
             @ApiImplicitParam(name = OFFSET_EMBEDDED, value = "Offset to begin at for embedded HAL concepts.", required = true, dataType = "boolean", paramType = "query"),
             @ApiImplicitParam(name = LIMIT_EMBEDDED, value = "Limit on the number of embedded HAL concepts.", required = true, dataType = "boolean", paramType = "query")
     })
-    private Json exploreConcept(Request request, Response response) {
-        validateRequest(request, APPLICATION_HAL);
-
-        Keyspace keyspace = Keyspace.of(mandatoryQueryParameter(request, KEYSPACE));
-        ConceptId conceptId = ConceptId.of(mandatoryRequestParameter(request, ID_PARAMETER));
-        int offset = queryParameter(request, OFFSET_EMBEDDED).map(Integer::parseInt).orElse(0);
-        int limit = queryParameter(request, LIMIT_EMBEDDED).map(Integer::parseInt).orElse(-1);
-
+    public String exploreConcept(
+            @PathParam(ID) String id,
+            @QueryParam(KEYSPACE) String keyspace,
+            @QueryParam(OFFSET_EMBEDDED) @DefaultValue("0") int offset,
+            @QueryParam(LIMIT_EMBEDDED) @DefaultValue("-1") int limit){
         try (GraknTx graph = factory.tx(keyspace, READ)) {
-            Concept concept = retrieveExistingConcept(graph, conceptId);
-
-            response.type(APPLICATION_HAL);
-            response.status(200);
-
-            return Json.read(HALExploreConcept(concept, keyspace, offset, limit));
+            Concept concept = retrieveExistingConcept(graph, ConceptId.of(id));
+            return HALExploreConcept(concept, Keyspace.of(keyspace), offset, limit);
         }
     }
 
     @GET
     @Path("types/{id}")
+    @Produces(APPLICATION_JSON)
     @ApiOperation(
             value = "Return a JSON object listing: " +
                     "- relationTypes the current concepts plays a role in." +
@@ -128,86 +113,77 @@ public class DashboardController {
             @ApiImplicitParam(name = IDENTIFIER, value = "Identifier of the concept", required = true, dataType = "string", paramType = "path"),
             @ApiImplicitParam(name = KEYSPACE, value = "Name of graph to use", required = true, dataType = "string", paramType = "query"),
     })
-    private Json typesOfConcept(Request request, Response response) {
-        validateRequest(request, APPLICATION_JSON);
-
-        String keyspace = mandatoryQueryParameter(request, KEYSPACE);
-        int limit = queryParameter(request, LIMIT_EMBEDDED).map(Integer::parseInt).orElse(-1);
-        ConceptId conceptId = ConceptId.of(mandatoryRequestParameter(request, ID_PARAMETER));
-
+    public HashMap<String, List<String>> typesOfConcept(
+            @PathParam(ID) String id,
+            @QueryParam(KEYSPACE) String keyspace,
+            @QueryParam(LIMIT_EMBEDDED) @DefaultValue("-1") int limit) {
         try (GraknTx graph = factory.tx(keyspace, READ)) {
-            Concept concept = retrieveExistingConcept(graph, conceptId);
-            Json body = Json.object();
-            Json responseField = Json.object();
+            Concept concept = retrieveExistingConcept(graph, ConceptId.of(id));
+            HashMap<String, List<String>> response = new HashMap<>();
             if (concept.isEntity()) {
                 Collection<Role> rolesOfType = concept.asEntity().type().plays().collect(Collectors.toSet());
 
-                responseField = Json.object(
-                        "roles", getRoleTypes(rolesOfType, concept, limit, keyspace),
-                        "relations", getRelationTypes(rolesOfType, concept, limit, keyspace),
-                        "entities", getEntityTypes(rolesOfType, concept, limit, keyspace)
-                );
+                response.put("roles", getRoleTypes(rolesOfType, concept, limit, keyspace));
+                response.put("relations", getRelationTypes(rolesOfType, concept, limit, keyspace));
+                response.put("entities", getEntityTypes(rolesOfType, concept, limit, keyspace));
             }
-            response.status(200);
-            response.body(responseField.toString());
-
-            return body;
+            return response;
         }
     }
 
     //TODO This should potentially be moved to the Graql controller
     @GET
     @Path("/explain")
+    @Produces(APPLICATION_JSON)
     @ApiOperation(
             value = "Returns an HAL representation of the explanation tree for a given get query.")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "keyspace", value = "Name of graph to use", dataType = "string", paramType = "query"),
             @ApiImplicitParam(name = "query", value = "Get query to execute", required = true, dataType = "string", paramType = "query"),
     })
-    private Json explainConcept(Request request, Response response) {
-        String keyspace = mandatoryQueryParameter(request, KEYSPACE);
-        String queryString = mandatoryQueryParameter(request, QUERY);
-        Json body = Json.object();
-
+    public String explainConcept(
+            @QueryParam(QUERY) String keyspace,
+            @QueryParam(KEYSPACE) String queryString,
+            @QueryParam(LIMIT_EMBEDDED) @DefaultValue("-1") int limitEmbedded
+    ) {
         try (GraknTx graph = factory.tx(keyspace, READ)) {
             Query<?> query = graph.graql().infer(true).parse(queryString);
-            body.set(ORIGINAL_QUERY, query.toString());
 
             if (!(query instanceof GetQuery)) {
                 throw GraknServerException.invalidQueryExplaination(query.getClass().getName());
             }
-
-            int limitEmbedded = queryParameter(request, REST.Request.Graql.LIMIT_EMBEDDED).map(Integer::parseInt).orElse(-1);
-            response.status(200);
-            return explanationAnswersToHAL(((GetQuery) query).stream(), limitEmbedded);
+            return explanationAnswersToHAL(((GetQuery) query).stream(), limitEmbedded).asString();
         }
 
     }
 
-    private static List<Json> getRelationTypes(Collection<Role> roleTypesPlayerByConcept, Concept concept, int limit, String keyspace) {
+    private static List<String> getRelationTypes(Collection<Role> roleTypesPlayerByConcept, Concept concept, int limit, String keyspace) {
         return roleTypesPlayerByConcept.stream().flatMap(roleType -> roleType.relationshipTypes())
                 .map(relationType -> relationType.getLabel().getValue()).sorted()
                 .map(relationName -> Json.object("value", relationName, "href", String.format(RELATION_TYPES, concept.asThing().type().getLabel().getValue(), concept.getId().getValue(), relationName, limit, keyspace, limit)))
+                .map(Object::toString)
                 .collect(toList());
     }
 
-    private static List<Json> getEntityTypes(Collection<Role> roleTypesPlayerByConcept, Concept concept, int limit, String keyspace) {
+    private static List<String> getEntityTypes(Collection<Role> roleTypesPlayerByConcept, Concept concept, int limit, String keyspace) {
         return roleTypesPlayerByConcept.stream().flatMap(roleType -> roleType.relationshipTypes())
                 .flatMap(relationType -> relationType.relates().filter(roleType1 -> !roleTypesPlayerByConcept.contains(roleType1)))
                 .flatMap(roleType -> roleType.playedByTypes().map(entityType -> entityType.getLabel().getValue()))
                 .collect(Collectors.toSet()).stream()
                 .sorted()
                 .map(entityName -> Json.object("value", entityName, "href", String.format(ENTITY_TYPES, concept.asThing().type().getLabel().getValue(), concept.getId().getValue(), entityName, limit, keyspace, limit)))
+                .map(Object::toString)
                 .collect(toList());
     }
 
-    private static List<Json> getRoleTypes(Collection<Role> roleTypesPlayerByConcept, Concept concept, int limit, String keyspace) {
+    private static List<String> getRoleTypes(Collection<Role> roleTypesPlayerByConcept, Concept concept, int limit, String keyspace) {
         return roleTypesPlayerByConcept.stream().flatMap(roleType -> roleType.relationshipTypes())
                 .flatMap(relationType -> relationType.relates().filter(roleType1 -> !roleTypesPlayerByConcept.contains(roleType1)))
                 .map(roleType -> roleType.getLabel().getValue())
                 .collect(Collectors.toSet()).stream()
                 .sorted()
                 .map(roleName -> Json.object("value", roleName, "href", String.format(ROLE_TYPES, concept.asThing().type().getLabel().getValue(), concept.getId().getValue(), roleName, limit, keyspace, limit)))
+                .map(Object::toString)
                 .collect(toList());
     }
 }
