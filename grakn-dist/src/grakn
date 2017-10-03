@@ -129,13 +129,17 @@ storage_start_and_wait_until_ready() {
       # exec storage bin successful. now wait until ready
       storage_wait_until_ready
       status=$?
-      echo "SUCCESS"
     else
       # exec storage bin failed
       status=1
-      echo "FAILED!"
     fi
 
+    if [ $status -eq 0 ]; then
+      echo "SUCCESS"
+    else
+      echo "FAILED!"
+    fi
+    
     return $status
   fi
 }
