@@ -530,41 +530,16 @@ cli_case_grakn_server_clean() {
   fi
 }
 
-cli_case_grakn_cluster_init() {
-  local yaml_jar="${GRAKN_HOME}/services/grakn/yaml-reader-1.0.jar"
-  local yaml_main_class="com.lolski.Main"
-  local yaml_field_cluster_name="grakn" # TODO: generate randomly
-  local yaml_field_seeds="$1"
-  local yaml_field_listen_addr="$1"
-  local yaml_field_rpc_addr="$1"
-  local original_conf="services/cassandra/cassandra.yaml"
-  local updated_conf="services/cassandra/cassandra.yaml"
-
-  ./grakn server stop storage
-
-  echo java -cp $yaml_jar $yaml_main_class \
-    $yaml_field_cluster_name $yaml_field_seeds $yaml_field_listen_addr $yaml_field_rpc_addr \
-    $original_conf $updated_conf
-
-  java -cp $yaml_jar $yaml_main_class \
-    $yaml_field_cluster_name $yaml_field_seeds $yaml_field_listen_addr $yaml_field_rpc_addr \
-    $original_conf $updated_conf
-
-  ./grakn server start storage
-}
-
 cli_case_grakn_cluster_join() {
   local yaml_jar="${GRAKN_HOME}/services/grakn/yaml-reader-1.0.jar"
   local yaml_main_class="com.lolski.Main"
-  local yaml_field_cluster_name="grakn" # TODO: generate randomly
+  local yaml_field_cluster_name="Grakn Example Cluster" # TODO: generate randomly
   local yaml_field_seeds="$1"
   local yaml_field_listen_addr="$2"
   local yaml_field_rpc_addr="$2"
   local original_conf="services/cassandra/cassandra.yaml"
   local updated_conf="services/cassandra/cassandra.yaml"
 
-  ./grakn server stop storage
-
   echo java -cp $yaml_jar $yaml_main_class \
     $yaml_field_cluster_name $yaml_field_seeds $yaml_field_listen_addr $yaml_field_rpc_addr \
     $original_conf $updated_conf
@@ -572,16 +547,14 @@ cli_case_grakn_cluster_join() {
   java -cp $yaml_jar $yaml_main_class \
     $yaml_field_cluster_name $yaml_field_seeds $yaml_field_listen_addr $yaml_field_rpc_addr \
     $original_conf $updated_conf
-
-  ./grakn server start storage
 }
 
-cli_case_grakn_cluster_remove() {
-  local response=curl -X DELETE $1 https://localhost:4567/cluster --data "{ 'host': '${$1}' }"
+cli_case_grakn_cluster_leave() {
+  "${GRAKN_HOME}/services/cassandra/nodetool" decommission
 }
 
 cli_case_grakn_cluster_status() {
-  local response=curl -X GET $1 https://localhost:4567/cluster --data "{ 'host': '${$1}' }"
+  "${GRAKN_HOME}/services/cassandra/nodetool" status
 }
 
 cli_case_grakn_version() {
@@ -720,14 +693,11 @@ case "$1" in
   ;;
   cluster)
     case "$2" in
-      init)
-        cli_case_grakn_cluster_init $3
-      ;;
       join)
         cli_case_grakn_cluster_join $3 $4
       ;;
-      remove)
-        cli_case_grakn_cluster_remove $3
+      leave)
+        cli_case_grakn_cluster_leave $3
       ;;
       status)
         cli_case_grakn_cluster_status
