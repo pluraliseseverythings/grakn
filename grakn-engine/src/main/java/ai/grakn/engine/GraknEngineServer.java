@@ -65,6 +65,7 @@ import io.dropwizard.setup.Environment;
 import io.dropwizard.websockets.WebsocketBundle;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import static org.apache.commons.lang.exception.ExceptionUtils.getFullStackTrace;
@@ -330,4 +331,7 @@ public class GraknEngineServer extends Application<GraknEngineServerConfiguratio
         }
     }
 
+    public MetricRegistry getMetricRegistry() {
+        return metricRegistry;
+    }
 }

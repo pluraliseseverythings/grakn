@@ -21,6 +21,10 @@ public class Utilities {
         return response.getBody().as(Json.class, new JsonMapper()).at(RESPONSE).asString();
     }
 
+    static String stringResponse(javax.ws.rs.core.Response response) {
+        return Json.read(response.readEntity(String.class)).asString();
+    }
+
     public static TaskState createTask() {
         return createTask(ShortExecutionMockTask.class);
     }

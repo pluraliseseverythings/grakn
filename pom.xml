@@ -49,6 +49,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>1.8</java.version>
+        <dropwizard.version>1.2.0-rc6</dropwizard.version>
         <tinkerpop.version>3.2.5-grakn-SNAPSHOT</tinkerpop.version>
         <junit.version>4.12</junit.version>
         <janus.version>0.2.0-grakn-SNAPSHOT</janus.version>
@@ -71,7 +72,7 @@
         <websocket.version>1.1</websocket.version>
         <jetty.version>9.3.6.v20151106</jetty.version>
         <mjson.version>1.4.0</mjson.version>
-        <logback.version>1.1.7</logback.version>
+        <logback.version>1.2.3</logback.version>
         <redis-mock.version>0.1</redis-mock.version>
         <janino.version>2.7.8</janino.version>
         <slf4j.version>1.7.20</slf4j.version>
@@ -201,11 +202,22 @@
             <groupId>ai.grakn</groupId>
             <artifactId>redisq</artifactId>
             <version>${redisq.version}</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>logback-classic</artifactId>
+                    <groupId>ch.qos.logback</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>${guava.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.dropwizard</groupId>
+            <artifactId>dropwizard-logging</artifactId>
+            <version>${dropwizard.version}</version>
         </dependency>
         <dependency>
             <groupId>com.google.auto.value</groupId>
@@ -410,6 +422,30 @@
                     <reuseForks>false</reuseForks>
                     <argLine>-Xmx1024m</argLine>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.0.0-M1</version>
+                <executions>
+                    <execution>
+                        <id>enforce-banned-dependencies</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>log4j</exclude>
+                                        <exclude>commons-logging</exclude>
+                                    </excludes>
+                                </bannedDependencies>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

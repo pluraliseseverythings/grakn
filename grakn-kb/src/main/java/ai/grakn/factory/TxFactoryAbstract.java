@@ -95,7 +95,9 @@ abstract class TxFactoryAbstract<M extends GraknTxAbstract<G>, G extends Graph> 
         if(graknGraph == null){
             graknGraph = buildGraknGraphFromTinker(getTinkerPopGraph(batchLoading));
         } else {
-            if(!graknGraph.isClosed()) throw GraknTxOperationException.transactionOpen(graknGraph);
+            if(!graknGraph.isClosed()) {
+                throw GraknTxOperationException.transactionOpen(graknGraph);
+            }
 
             if(graknGraph.isSessionClosed()){
                 graknGraph = buildGraknGraphFromTinker(getTinkerPopGraph(batchLoading));

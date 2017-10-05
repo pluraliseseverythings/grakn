@@ -24,7 +24,6 @@ import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.jersey.errors.ErrorMessage;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.ext.ExceptionMapper;
 
 /**
@@ -45,9 +44,9 @@ public class GraknServerExceptionMapper implements ExceptionMapper<GraknServerEx
     @Override
     public Response toResponse(GraknServerException e) {
         exceptions.mark();
-        return Response.status(Status.NOT_FOUND)
+        return Response.status(e.getStatus())
                 .type(MediaType.APPLICATION_JSON_TYPE)
-                .entity(new ErrorMessage(Status.NOT_FOUND.getStatusCode(), e.getMessage()))
+                .entity(new ErrorMessage(e.getStatus(), e.getMessage()))
                 .build();
     }
 }

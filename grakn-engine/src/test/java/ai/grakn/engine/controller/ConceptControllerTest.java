@@ -23,21 +23,20 @@ import ai.grakn.GraknTxType;
 import ai.grakn.concept.Concept;
 import ai.grakn.engine.GraknEngineStatus;
 import static ai.grakn.engine.controller.Utilities.stringResponse;
+import ai.grakn.engine.controller.exception.GraknServerExceptionMapper;
 import ai.grakn.engine.factory.EngineGraknTxFactory;
 import static ai.grakn.graql.internal.hal.HALBuilder.renderHALConceptData;
 import ai.grakn.test.SampleKBContext;
 import ai.grakn.test.kbs.MovieKB;
 import ai.grakn.util.REST;
-import static ai.grakn.util.REST.Request.Concept.LIMIT_EMBEDDED;
 import static ai.grakn.util.REST.Request.KEYSPACE;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_HAL;
 import static ai.grakn.util.REST.Response.Graql.IDENTIFIER;
 import ai.grakn.util.REST.WebPath;
 import ai.grakn.util.SampleKBLoader;
 import com.codahale.metrics.MetricRegistry;
-import static com.jayway.restassured.RestAssured.with;
-import com.jayway.restassured.response.Response;
 import io.dropwizard.testing.junit.ResourceTestRule;
+import javax.ws.rs.core.Response;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.fail;
@@ -52,13 +51,16 @@ import static org.mockito.Mockito.when;
 
 public class ConceptControllerTest {
 
+    private static final MetricRegistry METRICS = new MetricRegistry();
+
     private static GraknTx mockTx;
     private static EngineGraknTxFactory mockFactory = mock(EngineGraknTxFactory.class);
 
     @ClassRule
     public static final ResourceTestRule resources = ResourceTestRule.builder()
-            .addResource(new SystemController(mockFactory, new GraknEngineStatus(), new MetricRegistry()))
-            .addResource(new ConceptController(mockFactory, new MetricRegistry()))
+            .addProvider(new GraknServerExceptionMapper(METRICS))
+            .addResource(new SystemController(mockFactory, new GraknEngineStatus(), METRICS))
+            .addResource(new ConceptController(mockFactory, METRICS))
             .build();
 
     @ClassRule
@@ -81,31 +83,32 @@ public class ConceptControllerTest {
     public void gettingConceptById_ResponseStatusIs200(){
         Response response = sendRequest(sampleKB.tx().getEntityType("movie"), 0);
 
-        assertThat(response.statusCode(), equalTo(200));
+        assertThat(response.getStatus(), equalTo(200));
     }
 
     @Test
     public void gettingConceptByIdWithNoAcceptType_ResponseContentTypeIsHAL() {
         Concept concept = sampleKB.tx().getEntityType("movie");
 
-        Response response = with()
-                .queryParam(KEYSPACE, mockTx.getKeyspace().getValue())
-                .queryParam(IDENTIFIER, concept.getId().getValue())
-                .get(REST.WebPath.Concept.CONCEPT + concept.getId());
-
-        assertThat(response.contentType(), equalTo(APPLICATION_HAL));
+        Response response =
+                resources
+                        .target(WebPath.Concept.CONCEPT + concept.getId())
+                        .queryParam(KEYSPACE, mockTx.getKeyspace().getValue())
+                        .queryParam(IDENTIFIER, concept.getId().getValue())
+                        .request(APPLICATION_HAL).get();
+        assertThat(response.getMediaType().toString(), equalTo(APPLICATION_HAL));
     }
 
     @Test
     public void gettingConceptByIdWithHAlAcceptType_ResponseContentTypeIsHAL(){
         Concept concept = sampleKB.tx().getEntityType("movie");
 
-        javax.ws.rs.core.Response response = resources
+        Response response = resources
                 .target(WebPath.Concept.CONCEPT + concept.getId())
                 .queryParam(KEYSPACE, mockTx.getKeyspace().getValue())
                 .request(APPLICATION_HAL).get();
 
-        assertThat(response.getHeaderString("Content-type"), equalTo(APPLICATION_HAL));
+        assertThat(response.getMediaType().toString(), equalTo(APPLICATION_HAL));
     }
 
     @Test
@@ -144,18 +147,17 @@ public class ConceptControllerTest {
 
     @Test
     public void gettingNonExistingElementById_ResponseStatusIs404(){
-        Response response = with().queryParam(KEYSPACE, mockTx.getKeyspace().getValue())
-                .queryParam(IDENTIFIER, "invalid")
-                .accept(APPLICATION_HAL)
-                .get(REST.WebPath.Concept.CONCEPT + "blah");
-
-        assertThat(response.statusCode(), equalTo(404));
+        Response response = resources
+                .target(WebPath.Concept.CONCEPT + "blah")
+                .queryParam(KEYSPACE, mockTx.getKeyspace().getValue())
+                .request(APPLICATION_HAL).get();
+        assertThat(response.getStatus(), equalTo(404));
     }
 
     private Response sendRequest(Concept concept, int numberEmbeddedComponents){
-        return with().queryParam(KEYSPACE, mockTx.getKeyspace().getValue())
-                .queryParam(LIMIT_EMBEDDED, numberEmbeddedComponents)
-                .accept(APPLICATION_HAL)
-                .get(REST.WebPath.Concept.CONCEPT + concept.getId().getValue());
+        return resources
+                .target(REST.WebPath.Concept.CONCEPT + concept.getId().getValue())
+                .queryParam(KEYSPACE, mockTx.getKeyspace().getValue())
+                .request(APPLICATION_HAL).get();
     }
 }

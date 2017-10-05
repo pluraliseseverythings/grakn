@@ -27,6 +27,9 @@ import ai.grakn.graql.Printer;
 import ai.grakn.graql.Query;
 import ai.grakn.graql.QueryBuilder;
 import ai.grakn.graql.QueryParser;
+import static ai.grakn.graql.internal.hal.HALUtils.BASETYPE_PROPERTY;
+import static ai.grakn.graql.internal.hal.HALUtils.ID_PROPERTY;
+import static ai.grakn.graql.internal.hal.HALUtils.TYPE_PROPERTY;
 import ai.grakn.graql.internal.printer.Printers;
 import ai.grakn.test.GraknTestSetup;
 import ai.grakn.test.SampleKBContext;
@@ -485,6 +488,10 @@ public class GraqlControllerReadOnlyTest {
 
     protected static String exception(Response response) {
         return response.getBody().as(Json.class, jsonMapper).at(EXCEPTION).asString();
+    }
+
+    protected static String exception(javax.ws.rs.core.Response response) {
+        return Json.make(response.readEntity(String.class)).at(EXCEPTION).asString();
     }
 
     protected static String stringResponse(Response response) {

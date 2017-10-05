@@ -14,12 +14,11 @@ import static ai.grakn.util.REST.Request.Graql.MATERIALISE;
 import static ai.grakn.util.REST.Request.Graql.QUERY;
 import static ai.grakn.util.REST.Request.KEYSPACE;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_HAL;
-import com.jayway.restassured.RestAssured;
-import com.jayway.restassured.response.Response;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import java.util.Map;
 import static junit.framework.TestCase.assertTrue;
 import mjson.Json;
+import static org.junit.Assert.assertEquals;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -28,25 +27,25 @@ public class DashboardControllerTest {
 
     private Printer<Json> jsonPrinter;
 
-    private Response sendQueryExplain(String query) {
-        return RestAssured.with()
+    private javax.ws.rs.core.Response sendQueryExplain(String query) {
+        return resources
+                .target(REST.WebPath.Dashboard.EXPLAIN)
                 .queryParam(QUERY, query)
                 .queryParam(KEYSPACE, genealogyKB.tx().getKeyspace().getValue())
                 .queryParam(INFER, true)
                 .queryParam(MATERIALISE, false)
                 .queryParam(LIMIT_EMBEDDED, -1)
-                .accept(APPLICATION_HAL)
-                .get(REST.WebPath.Dashboard.EXPLAIN);
+                .request(APPLICATION_HAL).get();
     }
 
-    private Response sendQueryExplore(String id) {
-        return RestAssured.with()
+    private javax.ws.rs.core.Response sendQueryExplore(String id) {
+        return resources
+                .target(REST.WebPath.Dashboard.EXPLORE + id)
                 .queryParam(KEYSPACE, genealogyKB.tx().getKeyspace().getValue())
                 .queryParam(INFER, true)
                 .queryParam(MATERIALISE, false)
                 .queryParam(LIMIT_EMBEDDED, -1)
-                .accept(APPLICATION_HAL)
-                .get(REST.WebPath.Dashboard.EXPLORE + id);
+                .request(APPLICATION_HAL).get();
     }
 
 
@@ -72,12 +71,10 @@ public class DashboardControllerTest {
         Map<String, Json> marriage = Json.read(jsonPrinter.graqlString(query.execute())).asJsonList().get(0).asJsonMap();
         String id1 = marriage.get("x").asJsonMap().get("id").asString();
         String id2 = marriage.get("y").asJsonMap().get("id").asString();
-
         String queryString = String.format("match  $a id '%s'; $b id '%s';  ($a,$b) isa marriage; get;", id1, id2);
-
-        Response explainResponse = sendQueryExplain(queryString);
-        explainResponse.then().statusCode(200);
-        Json jsonResponse = Json.read(explainResponse.asString());
+        javax.ws.rs.core.Response explainResponse = sendQueryExplain(queryString);
+        assertEquals(200, explainResponse.getStatus());
+        Json jsonResponse = Json.read(explainResponse.getEntity().toString());
         jsonResponse.asJsonList().forEach(concept -> {
             assertTrue(concept.has("_baseType"));
             assertTrue(concept.has("_type"));
@@ -90,11 +87,9 @@ public class DashboardControllerTest {
         Query<?> query = genealogyKB.tx().graql().infer(true).parse("match $x label spouse; offset 0; limit 1; get;");
         Map<String, Json> spouse = Json.read(jsonPrinter.graqlString(query.execute())).asJsonList().get(0).asJsonMap();
         String id = spouse.get("x").asJsonMap().get("id").asString();
-
-
-        Response exploreResponse = sendQueryExplore(id);
-        exploreResponse.then().statusCode(200);
-        Json jsonResponse = Json.read(exploreResponse.body().asString());
+        javax.ws.rs.core.Response exploreResponse = sendQueryExplore(id);
+        assertEquals(200, exploreResponse.getStatus());
+        Json jsonResponse = Json.read(exploreResponse.getEntity().toString());
         assertTrue(jsonResponse.has("_baseType"));
         assertTrue(jsonResponse.has("_name"));
         assertTrue(jsonResponse.has("_id"));
@@ -106,15 +101,12 @@ public class DashboardControllerTest {
         Query<?> query = genealogyKB.tx().graql().infer(true).parse("match $x label marriage; offset 0; limit 1; get;");
         Map<String, Json> marriageType = Json.read(jsonPrinter.graqlString(query.execute())).asJsonList().get(0).asJsonMap();
         String id = marriageType.get("x").asJsonMap().get("id").asString();
-
-
-        Response exploreResponse = sendQueryExplore(id);
-        exploreResponse.then().statusCode(200);
-        Json jsonResponse = Json.read(exploreResponse.body().asString());
+        javax.ws.rs.core.Response exploreResponse = sendQueryExplore(id);
+        assertEquals(200, exploreResponse.getStatus());
+        Json jsonResponse = Json.read(exploreResponse.getEntity().toString());
         assertTrue(jsonResponse.has("_baseType"));
         assertTrue(jsonResponse.has("_name"));
         assertTrue(jsonResponse.has("_id"));
-
     }
 
 }

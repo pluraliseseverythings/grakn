@@ -36,6 +36,12 @@
             <groupId>ai.grakn</groupId>
             <artifactId>grakn-kb</artifactId>
             <version>${project.version}</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>commons-logging</artifactId>
+                    <groupId>commons-logging</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- Needed so we can create rule contexts -->

@@ -110,10 +110,10 @@ public class TasksController {
     private final Timer getTasksTimer;
 
     public TasksController(TaskManager manager, MetricRegistry metricRegistry) {
-        this(spark, manager, metricRegistry, taskExecutor());
+        this(manager, metricRegistry, taskExecutor());
     }
 
-    public TasksController(Service spark, TaskManager manager, MetricRegistry metricRegistry, ExecutorService executor) {
+    public TasksController(TaskManager manager, MetricRegistry metricRegistry, ExecutorService executor) {
         if (manager==null) {
             throw GraknServerException.internalError("Task manager has not been instantiated.");
         }
@@ -124,9 +124,7 @@ public class TasksController {
         this.stopTaskTimer = metricRegistry.timer(name(TasksController.class, "stop-task"));
         this.createTasksTimer = metricRegistry.timer(name(TasksController.class, "create-tasks"));
 
-        ThreadFactory namedThreadFactory = new ThreadFactoryBuilder()
-                .setNameFormat("grakn-task-controller-%d").build();
-        this.executor = Executors.newFixedThreadPool(MAX_THREADS, namedThreadFactory);
+        this.executor = executor;
     }
 
     @GET

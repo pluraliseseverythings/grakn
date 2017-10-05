@@ -55,32 +55,42 @@
                     <artifactId>slf4j-api</artifactId>
                     <groupId>org.slf4j</groupId>
                 </exclusion>
+              <exclusion>
+                <artifactId>jackson-databind</artifactId>
+                <groupId>com.fasterxml.jackson.core</groupId>
+              </exclusion>
             </exclusions>
-        </dependency>
-        <dependency>
-            <artifactId>jackson-core</artifactId>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <version>${jackson.version}</version>
-        </dependency>
-        <dependency>
-            <artifactId>jackson-databind</artifactId>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <version>${jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-all</artifactId>
             <version>${netty-all.version}</version>
         </dependency>
+      <dependency>
+      <groupId>io.dropwizard</groupId>
+      <artifactId>dropwizard-jackson</artifactId>
+      <version>${dropwizard.version}</version>
+      </dependency>
         <dependency>
           <groupId>io.dropwizard</groupId>
           <artifactId>dropwizard-core</artifactId>
           <version>${dropwizard.version}</version>
+
         </dependency>
       <dependency>
         <groupId>io.dropwizard</groupId>
         <artifactId>dropwizard-logging</artifactId>
         <version>${dropwizard.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>logback-core</artifactId>
+        <groupId>ch.qos.logback</groupId>
+        <version>1.2.3</version>
+      </dependency>
+      <dependency>
+        <artifactId>logback-classic</artifactId>
+        <groupId>ch.qos.logback</groupId>
+        <version>1.2.3</version>
       </dependency>
         <dependency>
           <groupId>io.dropwizard</groupId>
@@ -109,6 +119,10 @@
                 <artifactId>jersey-core</artifactId>
                 <groupId>com.sun.jersey</groupId>
               </exclusion>
+              <exclusion>
+                <artifactId>commons-logging</artifactId>
+                <groupId>commons-logging</groupId>
+              </exclusion>
             </exclusions>
         </dependency>
       <dependency>
@@ -121,20 +135,6 @@
           <groupId>io.dropwizard.metrics</groupId>
           <artifactId>metrics-servlets</artifactId>
           <version>${metrics.version}</version>
-            <exclusions>
-                <exclusion>
-                    <artifactId>jackson-databind</artifactId>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>jackson-core</artifactId>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>slf4j-api</artifactId>
-                    <groupId>org.slf4j</groupId>
-                </exclusion>
-            </exclusions>
         </dependency>
         <!-- Used to format metrics for Prometheus -->
         <dependency>
@@ -185,6 +185,10 @@
                 <artifactId>jersey-container-servlet-core</artifactId>
                 <groupId>org.glassfish.jersey.containers</groupId>
               </exclusion>
+              <exclusion>
+                <artifactId>jackson-databind</artifactId>
+                <groupId>com.fasterxml.jackson.core</groupId>
+              </exclusion>
             </exclusions>
         </dependency>
         <dependency>
@@ -197,7 +201,13 @@
             <artifactId>rest-assured</artifactId>
             <version>${rest-assured.version}</version>
             <scope>test</scope>
-        </dependency>
+        <exclusions>
+          <exclusion>
+            <artifactId>commons-logging</artifactId>
+            <groupId>commons-logging</groupId>
+          </exclusion>
+        </exclusions>
+      </dependency>
 
        <dependency>
             <groupId>com.github.stefanbirkner</groupId>
@@ -240,6 +250,26 @@
             <artifactId>httpcore</artifactId>
             <version>${apache-http-core.version}</version>
         </dependency>
+
+      <dependency>
+        <groupId>ai.grakn</groupId>
+        <artifactId>janus-factory</artifactId>
+        <version>${project.version}</version>
+        <exclusions>
+          <exclusion>
+            <artifactId>jsp-api</artifactId>
+            <groupId>javax.servlet.jsp</groupId>
+          </exclusion>
+          <exclusion>
+            <groupId>com.yammer.metrics</groupId>
+            <artifactId>metrics-core</artifactId>
+          </exclusion>
+          <exclusion>
+            <artifactId>jersey-core</artifactId>
+            <groupId>com.sun.jersey</groupId>
+          </exclusion>
+        </exclusions>
+      </dependency>
     </dependencies>
 
     <build>

@@ -85,6 +85,10 @@
                     <groupId>org.apache.servicemix.bundles</groupId>
                     <artifactId>org.apache.servicemix.bundles.commons-csv</artifactId>
                 </exclusion>
+                <exclusion>
+                    <artifactId>commons-logging</artifactId>
+                    <groupId>commons-logging</groupId>
+                </exclusion>
             </exclusions>
         </dependency>
 
@@ -178,6 +182,10 @@
                     <groupId>log4j</groupId>
                     <artifactId>log4j</artifactId>
                 </exclusion>
+                <exclusion>
+                    <artifactId>commons-logging</artifactId>
+                    <groupId>commons-logging</groupId>
+                </exclusion>
             </exclusions>
         </dependency>
 
@@ -223,6 +231,10 @@
                 <exclusion>
                     <groupId>org.apache.hadoop</groupId>
                     <artifactId>hadoop-common</artifactId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>commons-logging</artifactId>
+                    <groupId>commons-logging</groupId>
                 </exclusion>
             </exclusions>
         </dependency>

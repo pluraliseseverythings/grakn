@@ -31,12 +31,15 @@ import ai.grakn.util.REST;
 import static ai.grakn.util.REST.Request.Graql.INFER;
 import static ai.grakn.util.REST.Request.Graql.MATERIALISE;
 import static ai.grakn.util.REST.Request.KEYSPACE;
+import static ai.grakn.util.REST.Response.ContentType.APPLICATION_JSON_GRAQL;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_TEXT;
+import ai.grakn.util.REST.WebPath.KB;
 import ai.grakn.util.SampleKBLoader;
 import com.codahale.metrics.MetricRegistry;
 import com.jayway.restassured.RestAssured;
 import com.jayway.restassured.response.Response;
 import io.dropwizard.testing.junit.ResourceTestRule;
+import javax.ws.rs.client.Entity;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -120,11 +123,11 @@ public class GraqlControllerDeleteTest {
     public void DELETEWithNoKeyspace_ResponseStatusIs400(){
         String query = "match $x isa person; limit 1; delete;";
 
-        Response response = RestAssured.with()
-                .body(query)
-                .post(REST.WebPath.KB.ANY_GRAQL);
+        javax.ws.rs.core.Response response = resources.target(KB.ANY_GRAQL)
+                .request(APPLICATION_JSON_GRAQL)
+                .post(Entity.text(query));
 
-        assertThat(response.statusCode(), equalTo(400));
+        assertThat(response.getStatus(), equalTo(400));
         assertThat(exception(response), containsString(MISSING_MANDATORY_REQUEST_PARAMETERS.getMessage(KEYSPACE)));
     }
 

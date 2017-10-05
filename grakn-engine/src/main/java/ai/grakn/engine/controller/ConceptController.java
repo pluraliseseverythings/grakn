@@ -31,6 +31,7 @@ import static ai.grakn.graql.internal.hal.HALBuilder.renderHALConceptData;
 import static ai.grakn.util.REST.Request.Concept.LIMIT_EMBEDDED;
 import static ai.grakn.util.REST.Request.Concept.OFFSET_EMBEDDED;
 import static ai.grakn.util.REST.Request.KEYSPACE;
+import static ai.grakn.util.REST.Response.ContentType.APPLICATION_HAL;
 import static ai.grakn.util.REST.Response.Graql.IDENTIFIER;
 import static ai.grakn.util.REST.Response.Json.ATTRIBUTES_JSON_FIELD;
 import static ai.grakn.util.REST.Response.Json.ENTITIES_JSON_FIELD;
@@ -82,7 +83,7 @@ public class ConceptController {
 
     @GET
     @Path("/concept/{id}")
-    @Produces(APPLICATION_JSON)
+    @Produces({APPLICATION_JSON, APPLICATION_HAL})
     @ApiOperation(
             value = "Return the HAL representation of a given concept.")
     @ApiImplicitParams({
