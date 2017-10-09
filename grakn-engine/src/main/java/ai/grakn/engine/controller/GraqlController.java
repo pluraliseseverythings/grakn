@@ -22,7 +22,6 @@ import ai.grakn.GraknTx;
 import static ai.grakn.GraknTxType.WRITE;
 import ai.grakn.Keyspace;
 import ai.grakn.engine.factory.EngineGraknTxFactory;
-import ai.grakn.engine.util.EngineUtil;
 import ai.grakn.exception.GraknServerException;
 import ai.grakn.graql.AggregateQuery;
 import ai.grakn.graql.ComputeQuery;
@@ -52,7 +51,8 @@ import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
 import java.util.ArrayList;
 import java.util.Optional;
-import javax.servlet.http.HttpServletRequest;
+import javax.validation.Valid;
+import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
@@ -61,7 +61,8 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.HttpHeaders;
+import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import javax.ws.rs.core.Response;
 import mjson.Json;
 import org.slf4j.Logger;
@@ -94,19 +95,18 @@ public class GraqlController {
 
     @POST
     @Path("/execute")
-    @Consumes({MediaType.APPLICATION_JSON, APPLICATION_JSON_GRAQL, APPLICATION_TEXT})
-    @Produces(MediaType.APPLICATION_JSON)
+    @Produces({APPLICATION_JSON})
     @ApiOperation(value = "Execute an arbitrary Graql queryEndpoints used to query the graph by ID or Graql get query and build HAL objects.")
     public Response executeGraql(
-            @QueryParam(KEYSPACE) String ks,
+            @QueryParam(KEYSPACE) @NotNull String ks,
             @QueryParam(INFER) boolean infer,
             @QueryParam(MATERIALISE) boolean materialise,
             @QueryParam(DEFINE_ALL_VARS) Optional<Boolean> defineAllVars,
             @QueryParam(LIMIT_EMBEDDED) @DefaultValue("-1") int limitEmbedded,
-            @Context HttpServletRequest request) {
-        String queryString = EngineUtil.readBody(request);
+            @Valid String queryString,
+            @Context HttpHeaders headers) {
         Keyspace keyspace = Keyspace.of(ks);
-        String acceptType = getAcceptType(request);
+        String acceptType = getAcceptType(headers);
 
         try(GraknTx graph = factory.tx(keyspace, WRITE); Timer.Context context = executeGraqlPostTimer.time()) {
             QueryParser parser = graph.graql().materialise(materialise).infer(infer).parser();
@@ -120,7 +120,7 @@ public class GraqlController {
     
     @GET
     @Path("/")
-    @Consumes({MediaType.APPLICATION_JSON, APPLICATION_JSON_GRAQL, APPLICATION_TEXT})
+    @Consumes({APPLICATION_JSON, "application/graql+json", "application/text"})
     @ApiOperation(
             value = "Executes graql query on the server and build a representation for each concept in the query result. " +
                     "Return type is determined by the provided accept type: application/graql+json, application/hal+json or application/text")
@@ -136,9 +136,9 @@ public class GraqlController {
             @QueryParam(INFER) boolean infer,
             @QueryParam(MATERIALISE) boolean materialise,
             @QueryParam(LIMIT_EMBEDDED) @DefaultValue("-1") int limitEmbedded,
-            @Context HttpServletRequest request) {
+            @Context HttpHeaders headers) {
         Keyspace keyspace = Keyspace.of(ks);
-        String acceptType = getAcceptType(request);
+        String acceptType = getAcceptType(headers);
 
         try(GraknTx graph = factory.tx(keyspace, WRITE); Timer.Context context = executeGraqlGetTimer.time()) {
             Query<?> query = graph.graql().materialise(materialise).infer(infer).parse(queryString);
@@ -193,6 +193,9 @@ public class GraqlController {
             case APPLICATION_JSON_GRAQL:
                 printer = Printers.json();
                 break;
+            case APPLICATION_JSON:
+                printer = Printers.json();
+                break;
             case APPLICATION_HAL:
                 printer = Printers.hal(keyspace, limitEmbedded);
                 break;
@@ -205,10 +208,9 @@ public class GraqlController {
         return acceptType.equals(APPLICATION_TEXT) ? formatted : Json.read(formatted);
     }
 
-    static String getAcceptType(HttpServletRequest request) {
+    static String getAcceptType(HttpHeaders request) {
         // TODO - we are not handling multiple values here and we should!
-        String header = request.getHeader("Accept");
-        return header == null ? "" : request.getHeader("Accept").split(",")[0];
+        return request.getRequestHeader("Accept").get(0);
     }
 
     /**

@@ -20,26 +20,24 @@ package ai.grakn.engine.controller;
 
 import ai.grakn.GraknTx;
 import static ai.grakn.engine.controller.GraqlControllerReadOnlyTest.exception;
+import ai.grakn.engine.controller.exception.GraknTxOperationExceptionMapper;
 import ai.grakn.engine.factory.EngineGraknTxFactory;
 import ai.grakn.graql.QueryBuilder;
 import ai.grakn.graql.QueryParser;
 import ai.grakn.test.SampleKBContext;
 import ai.grakn.test.kbs.MovieKB;
-import static ai.grakn.util.ErrorMessage.MISSING_MANDATORY_REQUEST_PARAMETERS;
+import static ai.grakn.util.ErrorMessage.JERSEY_MISSING_MANDATORY_REQUEST_PARAMETERS;
 import static ai.grakn.util.ErrorMessage.MISSING_REQUEST_BODY;
-import ai.grakn.util.REST;
 import static ai.grakn.util.REST.Request.Graql.INFER;
 import static ai.grakn.util.REST.Request.Graql.MATERIALISE;
 import static ai.grakn.util.REST.Request.KEYSPACE;
-import static ai.grakn.util.REST.Response.ContentType.APPLICATION_JSON_GRAQL;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_TEXT;
 import ai.grakn.util.REST.WebPath.KB;
 import ai.grakn.util.SampleKBLoader;
 import com.codahale.metrics.MetricRegistry;
-import com.jayway.restassured.RestAssured;
-import com.jayway.restassured.response.Response;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import javax.ws.rs.client.Entity;
+import javax.ws.rs.core.MediaType;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -66,8 +64,11 @@ public class GraqlControllerDeleteTest {
     @ClassRule
     public static SampleKBContext sampleKB = SampleKBContext.preLoad(MovieKB.get());
 
+    private static final MetricRegistry METRICS = new MetricRegistry();
+
     @ClassRule
     public static final ResourceTestRule resources = ResourceTestRule.builder()
+            .addProvider(new GraknTxOperationExceptionMapper(METRICS))
             .addResource(new GraqlController(mockFactory, new MetricRegistry()))
             .build();
 
@@ -106,15 +107,15 @@ public class GraqlControllerDeleteTest {
     @Test
     public void DELETEMalformedGraqlQuery_ResponseStatusIs400(){
         String query = "match $x isa ; delete;";
-        Response response = sendRequest(query);
+        javax.ws.rs.core.Response response = sendRequest(query);
 
-        assertThat(response.statusCode(), equalTo(400));
+        assertThat(response.getStatus(), equalTo(400));
     }
 
     @Test
     public void DELETEMalformedGraqlQuery_ResponseExceptionContainsSyntaxError(){
         String query = "match $x isa ; delete;";
-        Response response = sendRequest(query);
+        javax.ws.rs.core.Response response = sendRequest(query);
 
         assertThat(exception(response), containsString("syntax error"));
     }
@@ -124,28 +125,32 @@ public class GraqlControllerDeleteTest {
         String query = "match $x isa person; limit 1; delete;";
 
         javax.ws.rs.core.Response response = resources.target(KB.ANY_GRAQL)
-                .request(APPLICATION_JSON_GRAQL)
-                .post(Entity.text(query));
+                .request().buildPost(Entity.text(query)).invoke();
 
-        assertThat(response.getStatus(), equalTo(400));
-        assertThat(exception(response), containsString(MISSING_MANDATORY_REQUEST_PARAMETERS.getMessage(KEYSPACE)));
+        String r = response.readEntity(String.class);
+        assertThat("Wrong status: " + response.getStatusInfo(), response.getStatus(), equalTo(400));
+        assertThat("Wrong error message: " + r, exception(r), containsString(JERSEY_MISSING_MANDATORY_REQUEST_PARAMETERS.getMessage(KEYSPACE)));
     }
 
     @Test
     public void DELETEWithNoQueryInBody_ResponseIs400(){
-        Response response = RestAssured.with()
-                .post(REST.WebPath.KB.ANY_GRAQL);
+        javax.ws.rs.core.Response response = resources.target(KB.ANY_GRAQL)
+                .request().buildPost(Entity.text("")).invoke();
 
-        assertThat(response.statusCode(), equalTo(400));
-        assertThat(exception(response), containsString(MISSING_REQUEST_BODY.getMessage()));
+        String r = response.readEntity(String.class);
+
+        assertThat(response.getStatus(), equalTo(400));
+        assertThat(exception(r), containsString(MISSING_REQUEST_BODY.getMessage()));
     }
 
     @Test
     public void DELETEGraqlDelete_ResponseStatusIs200(){
         String query = "match $x has name \"Robert De Niro\"; limit 1; delete $x;";
-        Response response = sendRequest(query);
+        javax.ws.rs.core.Response response = resources.target(KB.ANY_GRAQL)
+                .request().buildPost(Entity.text(query)).invoke();
 
-        assertThat(response.statusCode(), equalTo(200));
+        String r = response.readEntity(String.class);
+        assertThat(response.getStatusInfo(), equalTo(200));
     }
 
     @Test
@@ -170,35 +175,35 @@ public class GraqlControllerDeleteTest {
     }
 
     @Test
-    public void DELETEGraqlDeleteNotValid_ResponseStatusCodeIs422(){
+    public void DELETEGraqlDeleteNotValid_ResponsegetStatusIs422(){
         // Not allowed to delete roles with incoming edges
-        Response response = sendRequest("undefine production-being-directed sub work;");
+        javax.ws.rs.core.Response response = sendRequest("undefine production-being-directed sub work;");
 
-        assertThat(response.statusCode(), equalTo(422));
+        assertThat(response.getStatus(), equalTo(422));
     }
 
     @Test
     public void DELETEGraqlDeleteNotValid_ResponseExceptionContainsValidationErrorMessage(){
         // Not allowed to delete roles with incoming edges
-        Response response = sendRequest("undefine production-being-directed sub work;");
+        javax.ws.rs.core.Response response = sendRequest("undefine production-being-directed sub work;");
 
         assertThat(exception(response), containsString("cannot be deleted"));
     }
 
     @Test
     public void DELETEGraqlDelete_ResponseContentTypeIsText(){
-        Response response = sendRequest("match $x has name \"Harry\"; limit 1; delete $x;");
+        javax.ws.rs.core.Response response = sendRequest("match $x has name \"Harry\"; limit 1; delete $x;");
 
-        assertThat(response.contentType(), equalTo(APPLICATION_TEXT));
+        assertThat(response.getMetadata().get("content-type"), equalTo(APPLICATION_TEXT));
     }
 
-    private Response sendRequest(String query){
-        return RestAssured.with()
+    private javax.ws.rs.core.Response sendRequest(String query){
+        return resources.target(KB.ANY_GRAQL)
                 .queryParam(KEYSPACE, tx.getKeyspace().getValue())
                 .queryParam(INFER, false)
                 .queryParam(MATERIALISE, false)
-                .accept(APPLICATION_TEXT)
-                .body(query)
-                .post(REST.WebPath.KB.ANY_GRAQL);
+                .request()
+                .accept(MediaType.APPLICATION_JSON_TYPE)
+                .buildPost(Entity.text(query)).invoke();
     }
 }

@@ -277,6 +277,17 @@ public class QueryParserTest {
     }
 
     @Test
+    public void whenSearchingForImplicitType_EnsureQueryCanBeParsed(){
+        GetQuery expected = match(
+                var("x").plays("@has-release-date-owner")
+        ).get();
+
+        GetQuery parsed = parse("match $x plays @has-release-date-owner; get;");
+
+        assertEquals(expected, parsed);
+    }
+
+    @Test
     public void testModifierQuery() {
         GetQuery expected = match(
                 var("y").isa("movie").has("title", var("n"))
@@ -850,7 +861,7 @@ public class QueryParserTest {
 
     @Test
     public void whenParsingAQueryWithReifiedAttributeRelationshipSyntax_ItIsEquivalentToJavaGraql() {
-        assertParseEquivalence("match $x has name $z as $x; get $x;");
+        assertParseEquivalence("match $x has name $z via $x; get $x;");
     }
 
     @Test(expected = GraqlSyntaxException.class)

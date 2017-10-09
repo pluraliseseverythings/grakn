@@ -46,6 +46,7 @@ import static ai.grakn.util.REST.Request.KEYSPACE;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_HAL;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_JSON_GRAQL;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_TEXT;
+import static ai.grakn.util.REST.Response.ERRORS;
 import static ai.grakn.util.REST.Response.EXCEPTION;
 import com.codahale.metrics.MetricRegistry;
 import com.jayway.restassured.RestAssured;
@@ -53,6 +54,7 @@ import com.jayway.restassured.response.Response;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import java.util.Collections;
 import java.util.Properties;
+import java.util.stream.Collectors;
 import static junit.framework.TestCase.assertTrue;
 import mjson.Json;
 import static org.hamcrest.CoreMatchers.containsString;
@@ -491,7 +493,12 @@ public class GraqlControllerReadOnlyTest {
     }
 
     protected static String exception(javax.ws.rs.core.Response response) {
-        return Json.make(response.readEntity(String.class)).at(EXCEPTION).asString();
+        return exception(response.readEntity(String.class));
+    }
+
+    protected static String exception(String response) {
+        Json make = Json.read(response);
+        return make.at(ERRORS).asList().stream().map(Object::toString).collect(Collectors.joining(", "));
     }
 
     protected static String stringResponse(Response response) {

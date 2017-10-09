@@ -170,6 +170,7 @@ public enum ErrorMessage {
     UNAVAILABLE_TASK_CLASS("Could not find task class [%s]"),
     UNAVAILABLE_PROPERTY("Property requested [%s] has not been defined. See configuration file [%s] for configured properties."),
     MISSING_MANDATORY_REQUEST_PARAMETERS("Missing mandatory query parameter [%s]"),
+    JERSEY_MISSING_MANDATORY_REQUEST_PARAMETERS("query param %s may not be null"),
     MISSING_MANDATORY_BODY_REQUEST_PARAMETERS("Missing mandatory parameter in body [%s]"),
     MISSING_REQUEST_BODY("Empty body- it should contain the Graql query to be executed."),
     UNSUPPORTED_CONTENT_TYPE("Unsupported Content-Type [%s] requested"),
@@ -195,9 +196,12 @@ public enum ErrorMessage {
     NON_ATOMIC_QUERY("Addressed query is not atomic: [%s]."),
     NON_GROUND_NEQ_PREDICATE("Addressed query [%s] leads to a non-ground neq predicate when planning resolution."),
     ROLE_PATTERN_ABSENT("Addressed relation [%s] is missing a role pattern."),
-    NO_ATOMS_SELECTED("No atoms were selected from query [%s]"),
-    RULE_CREATION_ARITY_ERROR("Arity mismatch when creating rule"),
-    UNIFICATION_ATOM_INCOMPATIBILITY("Attempted unification on incompatible atoms"),
+    ROLE_ID_IS_NOT_ROLE("Assignment of non-role id to a role variable in pattern [%s]."),
+    INVALID_UNIFIER_TYPE("Unifier type [%s] is invalid."),
+    NO_ATOMS_SELECTED("No atoms were selected from query [%s]."),
+    RULE_CREATION_ARITY_ERROR("Arity mismatch when creating a rule."),
+    UNIFICATION_ATOM_INCOMPATIBILITY("Attempted unification on incompatible atoms."),
+    NON_EXISTENT_UNIFIER("Could not proceed with unification as the unifier doesn't exist."),
 
     //--------------------------------------------- Analytics Errors -----------------------------------------------
     NO_SOURCE("No valid source id provided"),

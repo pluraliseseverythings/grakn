@@ -60,6 +60,7 @@ import com.codahale.metrics.jvm.GarbageCollectorMetricSet;
 import com.codahale.metrics.jvm.MemoryUsageGaugeSet;
 import com.google.common.base.Stopwatch;
 import io.dropwizard.Application;
+import io.dropwizard.jersey.jackson.JsonProcessingExceptionMapper;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import io.dropwizard.websockets.WebsocketBundle;
@@ -69,6 +70,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import static org.apache.commons.lang.exception.ExceptionUtils.getFullStackTrace;
+import org.glassfish.jersey.server.validation.internal.ValidationExceptionMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
@@ -301,6 +303,10 @@ public class GraknEngineServer extends Application<GraknEngineServerConfiguratio
         environment.jersey().register(new InvalidKBExceptionMapper(environment.metrics()));
         environment.jersey().register(new GraknServerExceptionMapper(environment.metrics()));
         environment.jersey().register(new GraknBackendExceptionMapper(environment.metrics()));
+        environment.jersey().register(new JsonProcessingExceptionMapper(true));
+        environment.jersey().register(new ValidationExceptionMapper());
+
+
 
         // Start all the controllers
         environment.jersey().register(new CommitLogController(postProcessingDelay, taskManager));

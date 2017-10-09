@@ -18,6 +18,10 @@
 
 package ai.grakn.exception;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableSet;
+import java.util.Set;
+
 /**
  * <p>
  *     Root Grakn Exception
@@ -31,11 +35,23 @@ package ai.grakn.exception;
  * @author fppt
  */
 public class GraknException extends RuntimeException {
-    protected GraknException(String error){
+    // This is a set to mirror the format returned in Jersey,
+    // which potentially contains more than one error
+    @JsonProperty
+    private Set<String> errors;
+
+    public GraknException(String error){
         super(error);
+        this.errors = ImmutableSet.of(error);
     }
 
     protected GraknException(String error, Exception e){
         super(error, e);
+        this.errors = ImmutableSet.of(error);
+    }
+
+    @JsonProperty
+    public Set<String> getException() {
+        return errors;
     }
 }

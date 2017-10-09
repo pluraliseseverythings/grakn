@@ -17,11 +17,11 @@
  */
 package ai.grakn.engine.controller.exception;
 
+import ai.grakn.exception.GraknException;
 import ai.grakn.exception.GraknTxOperationException;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import static com.codahale.metrics.MetricRegistry.name;
-import io.dropwizard.jersey.errors.ErrorMessage;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.ExceptionMapper;
@@ -46,7 +46,7 @@ public class GraknTxOperationExceptionMapper implements ExceptionMapper<GraknTxO
         exceptions.mark();
         return Response.status(422)
                 .type(MediaType.APPLICATION_JSON_TYPE)
-                .entity(new ErrorMessage(422, e.getMessage()))
+                .entity(new GraknException(e.getMessage()))
                 .build();
     }
 }

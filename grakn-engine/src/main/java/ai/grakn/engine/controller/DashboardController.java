@@ -36,7 +36,6 @@ import static ai.grakn.util.REST.Request.Concept.LIMIT_EMBEDDED;
 import static ai.grakn.util.REST.Request.Concept.OFFSET_EMBEDDED;
 import static ai.grakn.util.REST.Request.Graql.QUERY;
 import static ai.grakn.util.REST.Request.KEYSPACE;
-import static ai.grakn.util.REST.Response.ContentType.APPLICATION_HAL;
 import static ai.grakn.util.REST.Response.ContentType.APPLICATION_JSON;
 import static ai.grakn.util.REST.Response.Graql.IDENTIFIER;
 import static ai.grakn.util.REST.Response.Task.ID;
@@ -54,6 +53,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.MediaType;
 import mjson.Json;
 
 /**
@@ -82,7 +82,7 @@ public class DashboardController {
 
     @GET
     @Path("explore/{id}")
-    @Produces({APPLICATION_JSON, APPLICATION_HAL})
+    @Produces({APPLICATION_JSON, "application/hal+json"})
     @ApiOperation(
             value = "Return the HAL Explore representation for the given concept.")
     @ApiImplicitParams({
@@ -104,7 +104,7 @@ public class DashboardController {
 
     @GET
     @Path("types/{id}")
-    @Produces({APPLICATION_JSON, APPLICATION_HAL})
+    @Produces({MediaType.APPLICATION_JSON, "application/hal+json"})
     @ApiOperation(
             value = "Return a JSON object listing: " +
                     "- relationTypes the current concepts plays a role in." +
@@ -135,7 +135,7 @@ public class DashboardController {
     //TODO This should potentially be moved to the Graql controller
     @GET
     @Path("/explain")
-    @Produces({APPLICATION_JSON, APPLICATION_HAL})
+    @Produces({MediaType.APPLICATION_JSON, "application/hal+json"})
     @ApiOperation(
             value = "Returns an HAL representation of the explanation tree for a given get query.")
     @ApiImplicitParams({

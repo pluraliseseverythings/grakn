@@ -50,7 +50,7 @@ You can use the drop down selector to choose previous versions of the API refere
            "explore":[
               {
                  "href":"/dashboard/explore/401584?keyspace=grakn&offsetEmbedded=0"
-              }
+              }]
            ],
            "self":{
               "href":"/kb/concept/401584?keyspace=grakn&offsetEmbedded=0"

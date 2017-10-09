@@ -221,11 +221,13 @@ public class REST {
     public static class Response{
 
         public static final String EXCEPTION = "exception";
+        public static final String ERRORS = "errors";
 
         /**
          * Response content types
          */
         public static class ContentType {
+            public static final String APPLICATION_GRAQL = "application/graql+text";
             public static final String APPLICATION_JSON_GRAQL = "application/graql+json";
             public static final String APPLICATION_JSON = "application/json";
             public static final String APPLICATION_TEXT = "application/text";

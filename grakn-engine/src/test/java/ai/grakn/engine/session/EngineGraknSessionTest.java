@@ -9,24 +9,30 @@ import ai.grakn.engine.GraknEngineConfig;
 import ai.grakn.engine.GraknEngineServer;
 import ai.grakn.engine.GraknEngineServerConfiguration;
 import ai.grakn.engine.factory.EngineGraknTxFactory;
+import ai.grakn.engine.util.SimpleURI;
 import ai.grakn.exception.GraknTxOperationException;
 import ai.grakn.test.GraknTestSetup;
 import ai.grakn.util.ErrorMessage;
+import ai.grakn.util.MockRedisRule;
 import ai.grakn.util.SampleKBLoader;
 import io.dropwizard.testing.ResourceHelpers;
 import io.dropwizard.testing.junit.DropwizardAppRule;
 import org.junit.AfterClass;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeFalse;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeFalse;
+
 public class EngineGraknSessionTest {
+
+    @ClassRule
+    public static MockRedisRule mockRedisRule = MockRedisRule.create(new SimpleURI(EngineTestHelper.config().getProperty(GraknEngineConfig.REDIS_HOST)).getPort());
 
     @Rule
     public final ExpectedException expectedException = ExpectedException.none();
