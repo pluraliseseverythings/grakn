@@ -74,7 +74,6 @@ import java.util.stream.Stream;
 
 import static ai.grakn.graql.Graql.and;
 import static ai.grakn.graql.Graql.eq;
-import static ai.grakn.graql.Graql.var;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
@@ -89,11 +88,15 @@ class QueryVisitor extends GraqlBaseVisitor {
 
     private final QueryBuilder queryBuilder;
     private final ImmutableMap<String, Function<List<Object>, Aggregate>> aggregateMethods;
+    private final boolean defineAllVars;
 
     QueryVisitor(
-            ImmutableMap<String, Function<List<Object>, Aggregate>> aggregateMethods, QueryBuilder queryBuilder) {
+            ImmutableMap<String, Function<List<Object>, Aggregate>> aggregateMethods, QueryBuilder queryBuilder,
+            boolean defineAllVars
+    ) {
         this.aggregateMethods = aggregateMethods;
         this.queryBuilder = queryBuilder;
+        this.defineAllVars = defineAllVars;
     }
 
     @Override
@@ -530,7 +533,11 @@ class QueryVisitor extends GraqlBaseVisitor {
 
     @Override
     public Label visitLabel(GraqlParser.LabelContext ctx) {
-        return Label.of(visitIdentifier(ctx.identifier()));
+        GraqlParser.IdentifierContext label = ctx.identifier();
+        if(label == null){
+            return Label.of(ctx.IMPLICIT_IDENTIFIER().getText());
+        }
+        return Label.of(visitIdentifier(label));
     }
 
     @Override
@@ -552,7 +559,7 @@ class QueryVisitor extends GraqlBaseVisitor {
         if (ctx == null) {
             return var();
         } else if (ctx.label() != null) {
-            return Graql.label(visitLabel(ctx.label()));
+            return var().label(visitLabel(ctx.label()));
         } else {
             return getVariable(ctx.VARIABLE());
         }
@@ -670,7 +677,7 @@ class QueryVisitor extends GraqlBaseVisitor {
 
     private Var getVariable(Token variable) {
         // Remove '$' prefix
-        return var(variable.getText().substring(1));
+        return Graql.var(variable.getText().substring(1));
     }
 
     private String getRegex(TerminalNode string) {
@@ -730,6 +737,16 @@ class QueryVisitor extends GraqlBaseVisitor {
     }
 
     private AttributeType.DataType getDatatype(TerminalNode datatype) {
-        return QueryParser.DATA_TYPES.get(datatype.getText());
+        return QueryParserImpl.DATA_TYPES.get(datatype.getText());
+    }
+
+    private Var var() {
+        Var var = Graql.var();
+
+        if (defineAllVars) {
+            return var.asUserDefined();
+        } else {
+            return var;
+        }
     }
 }

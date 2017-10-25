@@ -29,7 +29,10 @@ In Grakn, the [schema](https://en.wikipedia.org/wiki/Database_schema) is the for
 - Regex - Optional. Can be used to constrain string data types to specific regex patterns.
 - Unique - A boolean which indicates if the attribute should be unique across the knowledge base.   
 
-<br /> <img src="/images/knowledge-model1.png" style="width: 600px;"/> <br />
+<br /> <img src="/images/knowledge-model1.png" style="width: 600px;" alt="
+Image showing a schema where an entity 'person' has an attribute 'name' and plays the roles 'wife' and 'husband' in
+a 'marriage' relationship"
+/> <br />
 
 ### Building a Schema
 
@@ -49,7 +52,9 @@ define
   
 ```
 
-<br /> <img src="/images/knowledge-model2.png" style="width: 400px;"/> <br />
+<br /> <img src="/images/knowledge-model2.png" style="width: 400px;" alt="
+Image showing a schema where types 'person' and 'company' have an attribute 'name'
+"/> <br />
 
 <br />
 
@@ -74,7 +79,9 @@ define
   funding sub attribute, datatype long;
 ```
 
-<br /> <img src="/images/knowledge-model3.png" style="width: 400px;"/> <br />
+<br /> <img src="/images/knowledge-model3.png" style="width: 400px;" alt="
+Image showing the above schema, but with additional types 'customer' which subs 'person' and 'startup' subs 'company'
+"/> <br />
 
 <br />
 
@@ -106,7 +113,10 @@ define
   employer sub role;
 ``` 
 
-<br /> <img src="/images/knowledge-model4.png" style="width: 400px;"/> <br />
+<br /> <img src="/images/knowledge-model4.png" style="width: 400px;" alt="
+Image showing the same schema with an 'employment' relationship comprising the roles 'employee' and 'employer'. 'person'
+plays 'employee' and 'company' plays 'employer'
+"/> <br />
 
 <br /> 
 
@@ -153,8 +163,9 @@ define
   employer sub role;
 ```
 
-<br /> <img src="/images/knowledge-model6.png" style="width: 400px;"/> <br />
-
+<br /> <img src="/images/knowledge-model6.png" style="width: 400px;" alt="
+An image showing the schema where the relationship 'employment' now has the attribute 'date'.
+"/> <br />
 <br />
 
 N-ary relationships are also allowed by Grakn. For example, a three way `employment` relationship that has `employer`, `employee` and `office` roles:
@@ -171,7 +182,9 @@ define
   office sub role;
 ```
 
-<br /> <img src="/images/knowledge-model8.png" style="width: 400px;"/> <br />
+<br /> <img src="/images/knowledge-model8.png" style="width: 400px;" alt="
+An image showing a relationship 'employment' relating three roles: 'employee', 'employer' and 'office'
+"/> <br />
 
 ### Inheritance
 
@@ -181,7 +194,9 @@ As in object-oriented programming, the inheritance mechanism in Grakn enables su
 
 Likewise, the `startup` entity type inherits `relates name` and `plays employer` from the `company` supertype.
 
-<br /> <img src="/images/knowledge-model5.png" style="width: 400px;"/> <br />
+<br /> <img src="/images/knowledge-model5.png" style="width: 400px;" alt="
+An image showing that 'customer' inherits the property of playing 'employee' from its super-type 'person'.
+"/> <br />
 
 <br />
 
@@ -213,9 +228,14 @@ insert
   $x isa person, has name "Elizabeth Niesz";
   $y isa company, has name "Grakn Labs";
   (employee: $x, employer: $y) isa employment;
+commit
 ```
 
-<br /> <img src="/images/knowledge-model7.png" style="width: 400px;"/> <br />
+{% include note.html content="`commit` is useful only when you interact with graql console, do not use it when you import data from terminal" %}
+
+<br /> <img src="/images/knowledge-model7.png" style="width: 400px;" alt="
+An image showing the same schema as before, containing 'person', 'company', 'name' and 'employment'.
+"/> <br />
 
 
 ### Data Validation
@@ -235,6 +255,7 @@ insert
   $x isa person, has name "Elizabeth Niesz";
   $y isa person, has name "John Niesz";
   (employee: $x, employer: $y) isa employment;
+commit
 ```
 
 
@@ -286,21 +307,24 @@ This first attempt was horrible as we ended up failing all the validation rules.
 On commit we will see an error similar to this:
 
 ```bash
-A structural validation error has occurred. Please correct the [`5`] errors found.
-RoleType ['wife'] does not have exactly one relates connection to any RelationshipType.
-The abstract Type ['man'] should not have any instances
-Relationship Type ['marriage'] does not have two or more roles
-The relationship ['RELATION-marriage-2b58b138-2c33-478c-8e8c-e7b357a20941'] has an invalid structure. This is either due to having more role players than roles or the Relationship Type ['marriage'] not having the correct relates connection to one of the provided roles. The provided roles('2'): ['husband,wife,']The provided role players('2'): ['husband,wife,']
-The type ['man'] of role player ['ENTITY-man-2482cb91-1f12-40ea-b659-49d07d06ddf1'] is not allowed to play RoleType ['husband']
+The Type [man] is abstract and cannot have any instances # (1)
+```
+
+Then we will see also the following ones:
+
+```bash
+A structural validation error has occurred. Please correct the [`3`] errors found. 
+Role [wife] does not have a relates connection to any Relationship Type. # (2)
+The relation [V24656] has a role player playing the role [wife] which it's type [marriage] is not connecting to via a relates connection # (3)
+The type [man] of role player [V41176] is not allowed to play Role [husband] # (4)
 ```
     
 Lets see why:
 
-1. **Role Validation** failed because the role `wife` is not connected to any relationship
-2. **Relationship Validation** failed because `marriage` only has one role `husband`.
-3. **Type Validation** failed because we accidentally made `man` abstract and we declared `Bob` to be an instance of `man`.
+1. **Type Validation** failed because we accidentally made `man` abstract and we declared `Bob` to be an instance of `man`.
+2. **Role Validation** failed because the role `wife` is not connected to any relationship
+3. **Relationship Validation** failed because `marriage` only has one role `husband`.
 4. **Plays Role Validation** failed because we forgot to say that a `man` can play the role of `husband`.
-5. **Relationship Validation** failed because `Alice` is playing the role of a `wife` which is not part of a `marriage` and `Bob` is playing the role of a `husband`, which as a man he is not allowed to do.
 
 Let's fix these issues and try again:
 
@@ -310,12 +334,12 @@ define
   human has name;
   name sub attribute datatype string;
   
-  man sub human; # Fix (3)
+  man sub human; # Fix (1)
   woman sub human;
   
   marriage sub relationship;
   marriage relates husband;
-  marriage relates wife; # Fix (1) and (2) and part of (5)
+  marriage relates wife; # Fix (2) and (3)
   
   husband sub role;
   wife sub role;
@@ -367,12 +391,15 @@ define
       ($y, $z) isa located-in;
     }
     then {
-      ($x, $z) isa located-in;
+      (located-in:$x, located-x:$z) isa located-in;
     };
 
 ```
 
-<br /> <img src="/images/knowledge-model9.png" style="width: 600px;"/> <br />
+<br /> <img src="/images/knowledge-model9.png" style="width: 600px;" alt="
+An image showing that King's Cross is 'located-in' London and London is 'located-in' the UK - therefore King's Cross is
+'located-in' the UK
+"/> <br />
 
 <br />
 

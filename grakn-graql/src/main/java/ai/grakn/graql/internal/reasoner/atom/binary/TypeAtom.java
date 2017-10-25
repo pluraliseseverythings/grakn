@@ -26,7 +26,6 @@ import ai.grakn.graql.internal.pattern.property.IsaProperty;
 import ai.grakn.graql.internal.reasoner.ResolutionPlan;
 import ai.grakn.graql.internal.reasoner.atom.Atom;
 import ai.grakn.graql.internal.reasoner.atom.predicate.IdPredicate;
-import ai.grakn.graql.internal.reasoner.rule.InferenceRule;
 
 import javax.annotation.Nullable;
 import java.util.Objects;
@@ -56,13 +55,6 @@ public abstract class TypeAtom extends Binary{
         super(pattern, predicateVar, p, par);}
     protected TypeAtom(TypeAtom a) { super(a);}
 
-    @Override
-    public int hashCode() {
-        int hashCode = 1;
-        hashCode = hashCode * 37 + (this.getTypeId() != null? this.getTypeId().hashCode() : 0);
-        hashCode = hashCode * 37 + this.getVarName().hashCode();
-        return hashCode;
-    }
 
     @Override
     public boolean equals(Object obj) {
@@ -74,11 +66,18 @@ public abstract class TypeAtom extends Binary{
     }
 
     @Override
+    public int hashCode() {
+        int hashCode = 1;
+        hashCode = hashCode * 37 + (this.getTypeId() != null? this.getTypeId().hashCode() : 0);
+        hashCode = hashCode * 37 + this.getVarName().hashCode();
+        return hashCode;
+    }
+
+    @Override
     public boolean isType(){ return true;}
 
     @Override
-    public boolean isRuleApplicable(InferenceRule child) {
-        Atom ruleAtom = child.getHead().getAtom();
+    public boolean isRuleApplicableViaAtom(Atom ruleAtom) {
         return this.getSchemaConcept() != null
                 //ensure not ontological atom query
                 && getPattern().asVarPattern().hasProperty(IsaProperty.class)

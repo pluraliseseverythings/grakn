@@ -74,12 +74,6 @@ public abstract class SchemaConceptImpl<T extends SchemaConcept> extends Concept
         if(sup() == null) sup(superType);
     }
 
-    SchemaConceptImpl(VertexElement vertexElement, T superType, Boolean isImplicit) {
-        this(vertexElement, superType);
-        vertex().propertyImmutable(Schema.VertexProperty.IS_IMPLICIT, isImplicit, vertex().property(Schema.VertexProperty.IS_IMPLICIT));
-        cachedIsImplicit.set(isImplicit);
-    }
-
     public T setLabel(Label label){
         try {
             vertex().tx().txCache().remove(this);
@@ -111,10 +105,9 @@ public abstract class SchemaConceptImpl<T extends SchemaConcept> extends Concept
         return cachedLabel.get();
     }
 
-    /**
-     * Flushes the internal transaction caches so they can refresh with persisted graph
-     */
+    @Override
     public void txCacheFlush(){
+        super.txCacheFlush();
         cachedSuperType.flush();
         cachedDirectSubTypes.flush();
         cachedIsImplicit.flush();
@@ -122,6 +115,7 @@ public abstract class SchemaConceptImpl<T extends SchemaConcept> extends Concept
 
     @Override
     public void txCacheClear(){
+        super.txCacheClear();
         cachedSuperType.clear();
         cachedDirectSubTypes.clear();
         cachedIsImplicit.clear();
@@ -286,7 +280,7 @@ public abstract class SchemaConceptImpl<T extends SchemaConcept> extends Concept
             ((SchemaConceptImpl<T>) newSuperType).addCachedDirectSubType(getThis());
 
             //Track any existing data if there is some
-            trackRolePlayers();
+            if(oldSuperType != null) trackRolePlayers();
         }
         return getThis();
     }

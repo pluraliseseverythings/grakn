@@ -91,10 +91,6 @@ public class GraqlQueryException extends GraknException {
         return new GraqlQueryException(ErrorMessage.LABEL_NOT_FOUND.getMessage(label));
     }
 
-    public static GraqlQueryException roleAndRuleDoNotHaveInstance() {
-        return new GraqlQueryException(ErrorMessage.ROLE_AND_RULE_DO_NOT_HAVE_INSTANCE.getMessage());
-    }
-
     public static GraqlQueryException deleteSchemaConcept(SchemaConcept schemaConcept) {
         return create("cannot delete schema concept %s. Use `undefine` instead.", schemaConcept);
     }
@@ -111,8 +107,8 @@ public class GraqlQueryException extends GraknException {
         return new GraqlQueryException(ErrorMessage.MUST_BE_ATTRIBUTE_TYPE.getMessage(attributeType));
     }
 
-    public static GraqlQueryException queryInstanceOfRoleType(Label label) {
-        return new GraqlQueryException(ErrorMessage.INSTANCE_OF_ROLE_TYPE.getMessage(label));
+    public static GraqlQueryException cannotGetInstancesOfNonType(Label label) {
+        return GraqlQueryException.create("%s is not a type and so does not have instances", label);
     }
 
     public static GraqlQueryException notARelationType(Label label) {
@@ -242,7 +238,7 @@ public class GraqlQueryException extends GraknException {
                 .getMessage(clazz.toString()));
     }
 
-    public static GraqlQueryException statisticsResourceTypesNotSpecified() {
+    public static GraqlQueryException statisticsAttributeTypesNotSpecified() {
         return new GraqlQueryException(ErrorMessage.ATTRIBUTE_TYPE_NOT_SPECIFIED.getMessage());
     }
 
@@ -282,8 +278,16 @@ public class GraqlQueryException extends GraknException {
         return new GraqlQueryException(ErrorMessage.ROLE_PATTERN_ABSENT.getMessage(relation));
     }
 
-    public static GraqlQueryException ruleCreationArityMismatch() {
-        return new GraqlQueryException(ErrorMessage.RULE_CREATION_ARITY_ERROR.getMessage());
+    public static GraqlQueryException invalidUnifierType(Object value) {
+        return new GraqlQueryException(ErrorMessage.INVALID_UNIFIER_TYPE.getMessage(value));
+    }
+
+    public static GraqlQueryException nonExistentUnifier() {
+        return new GraqlQueryException(ErrorMessage.NON_EXISTENT_UNIFIER.getMessage());
+    }
+
+    public static GraqlQueryException illegalAtomConversion(Atomic atom){
+        return new GraqlQueryException(ErrorMessage.ILLEGAL_ATOM_CONVERSION.getMessage(atom));
     }
 
     public static GraqlQueryException valuePredicateAtomWithMultiplePredicates() {
@@ -296,6 +300,10 @@ public class GraqlQueryException extends GraknException {
 
     public static GraqlQueryException noAtomsSelected(ReasonerQuery reasonerQuery) {
         return new GraqlQueryException(ErrorMessage.NO_ATOMS_SELECTED.getMessage(reasonerQuery.toString()));
+    }
+
+    public static GraqlQueryException nonRoleIdAssignedToRoleVariable(VarPatternAdmin var) {
+        return new GraqlQueryException(ErrorMessage.ROLE_ID_IS_NOT_ROLE.getMessage(var.toString()));
     }
 
     public static GraqlQueryException cannotParseDateFormat(String originalFormat) {

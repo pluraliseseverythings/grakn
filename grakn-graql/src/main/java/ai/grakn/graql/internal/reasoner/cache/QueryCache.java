@@ -19,12 +19,11 @@
 package ai.grakn.graql.internal.reasoner.cache;
 
 import ai.grakn.graql.admin.Answer;
-import ai.grakn.graql.admin.Unifier;
+import ai.grakn.graql.admin.MultiUnifier;
 import ai.grakn.graql.internal.query.QueryAnswer;
-import ai.grakn.graql.internal.reasoner.explanation.LookupExplanation;
+import ai.grakn.graql.internal.reasoner.MultiUnifierImpl;
 import ai.grakn.graql.internal.reasoner.iterator.LazyIterator;
 import ai.grakn.graql.internal.reasoner.query.QueryAnswers;
-import ai.grakn.graql.internal.reasoner.UnifierImpl;
 import ai.grakn.graql.internal.reasoner.query.ReasonerQueries;
 import ai.grakn.graql.internal.reasoner.query.ReasonerQueryImpl;
 import ai.grakn.graql.internal.reasoner.utils.Pair;
@@ -47,15 +46,17 @@ import java.util.stream.Stream;
  */
 public class QueryCache<Q extends ReasonerQueryImpl> extends Cache<Q, QueryAnswers> {
 
-    public QueryCache(){ super();}
+    public QueryCache(){
+        super();
+    }
 
     @Override
     public QueryAnswers record(Q query, QueryAnswers answers) {
-        Pair<Q, QueryAnswers> match =  this.get(query);
+        CacheEntry<Q, QueryAnswers> match =  this.get(query);
         if (match != null) {
-            Q equivalentQuery = match.getKey();
+            Q equivalentQuery = match.query();
             QueryAnswers unifiedAnswers = QueryAnswers.getUnifiedAnswers(equivalentQuery, query, answers);
-            this.get(query).getValue().addAll(unifiedAnswers);
+            this.get(query).cachedElement().addAll(unifiedAnswers);
             return getAnswers(query);
         }
         this.put(query, answers);
@@ -66,11 +67,11 @@ public class QueryCache<Q extends ReasonerQueryImpl> extends Cache<Q, QueryAnswe
     public Stream<Answer> record(Q query, Stream<Answer> answerStream) {
         //NB: stream collection!
         QueryAnswers newAnswers = new QueryAnswers(answerStream.collect(Collectors.toSet()));
-        Pair<Q, QueryAnswers> match =  this.get(query);
+        CacheEntry<Q, QueryAnswers> match =  this.get(query);
         if (match != null) {
-            Q equivalentQuery = match.getKey();
-            QueryAnswers answers = match.getValue();
-            QueryAnswers unifiedAnswers = newAnswers.unify(query.getUnifier(equivalentQuery));
+            Q equivalentQuery = match.query();
+            QueryAnswers answers = match.cachedElement();
+            QueryAnswers unifiedAnswers = newAnswers.unify(query.getMultiUnifier(equivalentQuery));
             answers.addAll(unifiedAnswers);
             return answers.stream();
         }
@@ -91,12 +92,12 @@ public class QueryCache<Q extends ReasonerQueryImpl> extends Cache<Q, QueryAnswe
      */
     public Answer recordAnswer(Q query, Answer answer){
         if(answer.isEmpty()) return answer;
-        Pair<Q, QueryAnswers> match =  this.get(query);
+        CacheEntry<Q, QueryAnswers> match =  this.get(query);
         if (match != null) {
-            Q equivalentQuery = match.getKey();
-            QueryAnswers answers = match.getValue();
-            Answer unifiedAnswer = answer.unify(query.getUnifier(equivalentQuery));
-            answers.add(unifiedAnswer);
+            Q equivalentQuery = match.query();
+            QueryAnswers answers = match.cachedElement();
+            MultiUnifier multiUnifier = query.getMultiUnifier(equivalentQuery);
+            answer.unify(multiUnifier).forEach(answers::add);
         } else {
             this.put(query, new QueryAnswers(answer));
         }
@@ -110,13 +111,12 @@ public class QueryCache<Q extends ReasonerQueryImpl> extends Cache<Q, QueryAnswe
      * @param unifier between the cached and input query
      * @return recorded answer
      */
-    public Answer recordAnswerWithUnifier(Q query, Answer answer, Unifier unifier){
+    public Answer recordAnswerWithUnifier(Q query, Answer answer, MultiUnifier unifier){
         if(answer.isEmpty()) return answer;
-        Pair<Q, QueryAnswers> match =  this.get(query);
+        CacheEntry<Q, QueryAnswers> match =  this.get(query);
         if (match != null) {
-            QueryAnswers answers = match.getValue();
-            Answer unifiedAnswer = answer.unify(unifier);
-            answers.add(unifiedAnswer);
+            QueryAnswers answers = match.cachedElement();
+            answer.unify(unifier).forEach(answers::add);
         } else {
             this.put(query, new QueryAnswers(answer));
         }
@@ -129,15 +129,15 @@ public class QueryCache<Q extends ReasonerQueryImpl> extends Cache<Q, QueryAnswe
     }
 
     @Override
-    public Pair<QueryAnswers, Unifier> getAnswersWithUnifier(Q query) {
-        Pair<Q, QueryAnswers> match =  this.get(query);
+    public Pair<QueryAnswers, MultiUnifier> getAnswersWithUnifier(Q query) {
+                CacheEntry<Q, QueryAnswers> match =  this.get(query);
         if (match != null) {
-            Q equivalentQuery = match.getKey();
-            QueryAnswers answers = match.getValue();
-            Unifier unifier = equivalentQuery.getUnifier(query);
-            return new Pair<>(answers.unify(unifier), unifier);
+            Q equivalentQuery = match.query();
+            QueryAnswers answers = match.cachedElement();
+            MultiUnifier multiUnifier = equivalentQuery.getMultiUnifier(query);
+            return new Pair<>(answers.unify(multiUnifier), multiUnifier);
         }
-        return new Pair<>(new QueryAnswers(), new UnifierImpl());
+        return new Pair<>(new QueryAnswers(), new MultiUnifierImpl());
     }
 
     @Override
@@ -146,17 +146,17 @@ public class QueryCache<Q extends ReasonerQueryImpl> extends Cache<Q, QueryAnswe
     }
 
     @Override
-    public Pair<Stream<Answer>, Unifier> getAnswerStreamWithUnifier(Q query) {
-        Pair<Q, QueryAnswers> match =  this.get(query);
+    public Pair<Stream<Answer>, MultiUnifier> getAnswerStreamWithUnifier(Q query) {
+        CacheEntry<Q, QueryAnswers> match =  this.get(query);
         if (match != null) {
-            Q equivalentQuery = match.getKey();
-            QueryAnswers answers = match.getValue();
-            Unifier unifier = equivalentQuery.getUnifier(query);
-            return new Pair<>(answers.unify(unifier).stream(), unifier);
+            Q equivalentQuery = match.query();
+            QueryAnswers answers = match.cachedElement();
+            MultiUnifier multiUnifier = equivalentQuery.getMultiUnifier(query);
+            return new Pair<>(answers.unify(multiUnifier).stream(), multiUnifier);
         }
         return new Pair<>(
-                query.getQuery().stream().map(a -> a.explain(new LookupExplanation(query))),
-                new UnifierImpl()
+                structuralCache().get(query),
+                new MultiUnifierImpl()
         );
     }
 
@@ -173,11 +173,13 @@ public class QueryCache<Q extends ReasonerQueryImpl> extends Cache<Q, QueryAnswe
      */
     public Answer getAnswer(Q query, Answer ans){
         if(ans.isEmpty()) return ans;
-        Pair<Q, QueryAnswers> match =  this.get(query);
+        CacheEntry<Q, QueryAnswers> match =  this.get(query);
         if (match != null) {
-            Q equivalentQuery = match.getKey();
-            Unifier unifier = equivalentQuery.getUnifier(query);
-            QueryAnswers answers =  match.getValue().unify(unifier);
+            Q equivalentQuery = match.query();
+            MultiUnifier multiUnifier = equivalentQuery.getMultiUnifier(query);
+            QueryAnswers answers =  match.cachedElement().unify(multiUnifier);
+
+            //NB: only used when checking for materialised answer duplicates
             Answer answer = answers.stream()
                     .filter(a -> a.containsAll(ans))
                     .findFirst().orElse(null);
@@ -194,13 +196,13 @@ public class QueryCache<Q extends ReasonerQueryImpl> extends Cache<Q, QueryAnswe
         c2.getQueries().stream()
                 .filter(queries::contains)
                 .filter(this::contains)
-                .forEach( q -> this.get(q).getValue().removeAll(c2.getAnswers(q)));
+                .forEach( q -> this.get(q).cachedElement().removeAll(c2.getAnswers(q)));
     }
 
     @Override
     public long answerSize(Set<Q> queries) {
         return entries().stream()
-                .filter(p -> queries.contains(p.getKey()))
-                .map(v -> v.getValue().size()).mapToInt(Integer::intValue).sum();
+                .filter(p -> queries.contains(p.query()))
+                .map(v -> v.cachedElement().size()).mapToInt(Integer::intValue).sum();
     }
 }

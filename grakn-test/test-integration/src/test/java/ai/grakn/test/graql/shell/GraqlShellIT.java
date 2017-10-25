@@ -71,8 +71,7 @@ import static org.junit.Assume.assumeFalse;
 public class GraqlShellIT {
 
     @ClassRule
-    public static final DistributionContext dist = DistributionContext.startInMemoryEngineProcess().inheritIO(true);
-
+    public static final DistributionContext dist = DistributionContext.create().inheritIO(true);
     private static InputStream trueIn;
     private static PrintStream trueOut;
     private static PrintStream trueErr;
@@ -620,22 +619,6 @@ public class GraqlShellIT {
 
         String err2 = runShell("", "-e", query).err();
         assertEquals(err1, err2);
-    }
-
-    @Test
-    public void testDuplicateRelation() throws Exception {
-        String err = runShell(
-                "define R sub " + Schema.MetaSchema.RELATIONSHIP.getLabel().getValue() + ", relates R1, relates R2; R1 sub role; R2 sub role;\n" +
-                        "define X sub entity, plays R1, plays R2;\n" +
-                        "insert $x isa X; (R1: $x, R2: $x) isa R;\n" +
-                        "match $x isa X; insert (R1: $x, R2: $x) isa R;\n" +
-                        "commit\n"
-        ).err();
-
-        assertThat(err.toLowerCase(), allOf(
-                anyOf(containsString("exists"), containsString("one or more")),
-                containsString("relationships")
-        ));
     }
 
     @Test

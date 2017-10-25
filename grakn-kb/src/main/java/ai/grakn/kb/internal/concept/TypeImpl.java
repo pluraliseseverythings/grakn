@@ -67,7 +67,6 @@ public class TypeImpl<T extends Type, V extends Thing> extends SchemaConceptImpl
     protected final Logger LOG = LoggerFactory.getLogger(TypeImpl.class);
 
     private final Cache<Boolean> cachedIsAbstract = new Cache<>(Cacheable.bool(), () -> vertex().propertyBoolean(Schema.VertexProperty.IS_ABSTRACT));
-    private final Cache<Set<T>> cachedShards = new Cache<>(Cacheable.set(), () -> this.<T>neighbours(Direction.IN, Schema.EdgeLabel.SHARD).collect(Collectors.toSet()));
 
     //This cache is different in order to keep track of which plays are required
     private final Cache<Map<Role, Boolean>> cachedDirectPlays = new Cache<>(Cacheable.map(), () -> {
@@ -97,31 +96,17 @@ public class TypeImpl<T extends Type, V extends Thing> extends SchemaConceptImpl
         createShard();
     }
 
-    TypeImpl(VertexElement vertexElement, T superType, Boolean isImplicit) {
-        super(vertexElement, superType, isImplicit);
-        //This constructor is ONLY used when CREATING new types. Which is why we shard here
-        createShard();
-    }
-
-    /**
-     * Flushes the internal transaction caches so they can refresh with persisted graph
-     */
     @Override
     public void txCacheFlush(){
         super.txCacheFlush();
         cachedIsAbstract.flush();
-        cachedShards.flush();
         cachedDirectPlays.flush();
     }
 
-    /**
-     * Clears the internal transaction caches
-     */
     @Override
     public void txCacheClear(){
         super.txCacheClear();
         cachedIsAbstract.clear();
-        cachedShards.clear();
         cachedDirectPlays.clear();
     }
 
@@ -385,6 +370,13 @@ public class TypeImpl<T extends Type, V extends Thing> extends SchemaConceptImpl
 
         property(Schema.VertexProperty.IS_ABSTRACT, isAbstract);
         cachedIsAbstract.set(isAbstract);
+
+        if(isAbstract){
+            vertex().tx().txCache().removeFromValidation(this);
+        } else {
+            vertex().tx().txCache().trackForValidation(this);
+        }
+
         return getThis();
     }
 

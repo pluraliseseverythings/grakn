@@ -22,6 +22,7 @@ package ai.grakn.graql.internal.query;
 import ai.grakn.concept.AttributeType;
 import ai.grakn.concept.ConceptId;
 import ai.grakn.concept.EntityType;
+import ai.grakn.concept.Label;
 import ai.grakn.exception.GraqlQueryException;
 import ai.grakn.graql.DefineQuery;
 import ai.grakn.graql.Graql;
@@ -49,6 +50,7 @@ import org.junit.rules.ExpectedException;
 
 import static ai.grakn.concept.AttributeType.DataType.BOOLEAN;
 import static ai.grakn.graql.Graql.label;
+import static ai.grakn.graql.Graql.parse;
 import static ai.grakn.graql.Graql.var;
 import static ai.grakn.util.GraqlTestUtil.assertExists;
 import static ai.grakn.util.GraqlTestUtil.assertNotExists;
@@ -293,8 +295,8 @@ public class DefineQueryTest {
 
     @Test
     public void whenDefiningARule_TheRuleIsInTheKB() {
-        Pattern when = qb.parsePattern("$x isa entity");
-        Pattern then = qb.parsePattern("$x isa entity");
+        Pattern when = qb.parser().parsePattern("$x isa entity");
+        Pattern then = qb.parser().parsePattern("$x isa entity");
         VarPattern vars = label("my-rule").sub(label(RULE.getLabel())).when(when).then(then);
         qb.define(vars).execute();
 
@@ -407,6 +409,25 @@ public class DefineQueryTest {
         ));
 
         qb.define(var().id(id).has("title", "Bob")).execute();
+    }
+
+    @Test
+    public void whenSpecifyingLabelOfAnExistingConcept_LabelIsChanged() {
+        movies.tx().putEntityType("a-new-type");
+
+        EntityType type = movies.tx().getEntityType("a-new-type");
+        Label newLabel = Label.of("a-new-new-type");
+
+        qb.define(label(newLabel).id(type.getId())).execute();
+
+        assertEquals(newLabel, type.getLabel());
+    }
+
+    @Test
+    public void whenCallingToStringOfDefineQuery_ReturnCorrectRepresentation(){
+        String queryString = "define label my-entity sub entity;";
+        DefineQuery defineQuery = parse(queryString);
+        assertEquals(queryString, defineQuery.toString());
     }
 
     private void assertDefine(VarPattern... vars) {

@@ -17,7 +17,11 @@
  */
 package ai.grakn.graql.internal.reasoner.atom.binary;
 
+import ai.grakn.GraknTx;
+import ai.grakn.concept.Label;
 import ai.grakn.concept.SchemaConcept;
+import ai.grakn.exception.GraqlQueryException;
+import ai.grakn.graql.Graql;
 import ai.grakn.graql.Var;
 import ai.grakn.graql.VarPattern;
 import ai.grakn.graql.admin.Atomic;
@@ -34,8 +38,9 @@ import ai.grakn.graql.internal.reasoner.atom.AtomicFactory;
 import ai.grakn.graql.internal.reasoner.atom.predicate.IdPredicate;
 import ai.grakn.graql.internal.reasoner.atom.predicate.Predicate;
 import ai.grakn.graql.internal.reasoner.atom.predicate.ValuePredicate;
-import ai.grakn.graql.internal.reasoner.rule.InferenceRule;
+import ai.grakn.graql.internal.reasoner.query.ReasonerQueryImpl;
 import ai.grakn.util.ErrorMessage;
+import ai.grakn.util.Schema;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -49,7 +54,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static ai.grakn.graql.internal.reasoner.utils.ReasonerUtils.checkDisjoint;
+import static ai.grakn.graql.internal.reasoner.utils.ReasonerUtils.areDisjointTypes;
 
 /**
  *
@@ -89,6 +94,24 @@ public class ResourceAtom extends Binary{
     }
 
     @Override
+    public RelationshipAtom toRelationshipAtom(){
+        SchemaConcept type = getSchemaConcept();
+        if (type == null) throw GraqlQueryException.illegalAtomConversion(this);
+        GraknTx tx = getParentQuery().tx();
+        Label typeLabel = Schema.ImplicitType.HAS.getLabel(type.getLabel());
+        return new RelationshipAtom(
+                Graql.var()
+                        .rel(Schema.ImplicitType.HAS_OWNER.getLabel(type.getLabel()).getValue(), getVarName())
+                        .rel(Schema.ImplicitType.HAS_VALUE.getLabel(type.getLabel()).getValue(), getPredicateVariable())
+                        .isa(typeLabel.getValue())
+                .admin(),
+                getPredicateVariable(),
+                new IdPredicate(getPredicateVariable().id(tx.getSchemaConcept(typeLabel).getId()).admin(), getParentQuery()),
+                getParentQuery()
+        );
+    }
+
+    @Override
     public String toString(){
         String multiPredicateString = getMultiPredicate().isEmpty()?
                 getPredicateVariable().toString() :
@@ -97,15 +120,6 @@ public class ResourceAtom extends Binary{
                 multiPredicateString +
                 getPredicates(Predicate.class).map(Predicate::toString).collect(Collectors.joining(""))  +
                 (relationVariable.isUserDefinedName()? "(" + relationVariable + ")" : "");
-    }
-
-    @Override
-    public int hashCode() {
-        int hashCode = 1;
-        hashCode = hashCode * 37 + (this.getTypeId() != null? this.getTypeId().hashCode() : 0);
-        hashCode = hashCode * 37 + this.getVarName().hashCode();
-        hashCode = hashCode * 37 + this.getMultiPredicate().hashCode();
-        return hashCode;
     }
 
     @Override
@@ -119,7 +133,53 @@ public class ResourceAtom extends Binary{
     }
 
     @Override
-    public int equivalenceHashCode() {
+    public int hashCode() {
+        int hashCode = 1;
+        hashCode = hashCode * 37 + (this.getTypeId() != null? this.getTypeId().hashCode() : 0);
+        hashCode = hashCode * 37 + this.getVarName().hashCode();
+        hashCode = hashCode * 37 + this.getMultiPredicate().hashCode();
+        return hashCode;
+    }
+
+    private boolean hasMultiPredicateEquivalentWith(ResourceAtom atom){
+        if(this.getMultiPredicate().size() != atom.getMultiPredicate().size()) return false;
+        for (ValuePredicate vp : getMultiPredicate()) {
+            Iterator<ValuePredicate> objIt = atom.getMultiPredicate().iterator();
+            boolean predicateHasEquivalent = false;
+            while (objIt.hasNext() && !predicateHasEquivalent) {
+                predicateHasEquivalent = vp.isAlphaEquivalent(objIt.next());
+            }
+            if (!predicateHasEquivalent) return false;
+        }
+        return true;
+    }
+
+    @Override
+    boolean hasEquivalentPredicatesWith(Binary at) {
+        if (!(at instanceof ResourceAtom && super.hasEquivalentPredicatesWith(at))) return false;
+
+        ResourceAtom atom = (ResourceAtom) at;
+        if (!hasMultiPredicateEquivalentWith(atom)) return false;
+
+        IdPredicate thisPredicate = this.getIdPredicate(getPredicateVariable());
+        IdPredicate predicate = atom.getIdPredicate(atom.getPredicateVariable());
+        return thisPredicate == null && predicate == null || thisPredicate != null && thisPredicate.isAlphaEquivalent(predicate);
+    }
+
+    @Override
+    boolean predicateBindingsAreEquivalent(Binary at) {
+        if (!(at instanceof ResourceAtom && super.predicateBindingsAreEquivalent(at))) return false;
+
+        ResourceAtom atom = (ResourceAtom) at;
+        if (!hasMultiPredicateEquivalentWith(atom)) return false;
+
+        IdPredicate thisPredicate = this.getIdPredicate(getPredicateVariable());
+        IdPredicate predicate = atom.getIdPredicate(atom.getPredicateVariable());
+        return (thisPredicate == null) == (predicate == null);
+    }
+
+    @Override
+    public int alphaEquivalenceHashCode() {
         int hashCode = 1;
         hashCode = hashCode * 37 + (this.getTypeId() != null? this.getTypeId().hashCode() : 0);
         hashCode = hashCode * 37 + multiPredicateEquivalenceHashCode();
@@ -129,30 +189,12 @@ public class ResourceAtom extends Binary{
     private int multiPredicateEquivalenceHashCode(){
         int hashCode = 0;
         SortedSet<Integer> hashes = new TreeSet<>();
-        getMultiPredicate().forEach(atom -> hashes.add(atom.equivalenceHashCode()));
+        getMultiPredicate().forEach(atom -> hashes.add(atom.alphaEquivalenceHashCode()));
         for (Integer hash : hashes) hashCode = hashCode * 37 + hash;
         return hashCode;
     }
 
-    @Override
-    boolean hasEquivalentPredicatesWith(Binary at) {
-        if (!(at instanceof ResourceAtom && super.hasEquivalentPredicatesWith(at))) return false;
 
-        ResourceAtom atom = (ResourceAtom) at;
-        if(this.getMultiPredicate().size() != atom.getMultiPredicate().size()) return false;
-        for (ValuePredicate vp : getMultiPredicate()) {
-            Iterator<ValuePredicate> objIt = atom.getMultiPredicate().iterator();
-            boolean predicateHasEquivalent = false;
-            while (objIt.hasNext() && !predicateHasEquivalent) {
-                predicateHasEquivalent = vp.isEquivalent(objIt.next());
-            }
-            if (!predicateHasEquivalent) return false;
-        }
-
-        IdPredicate thisPredicate = this.getIdPredicate(getPredicateVariable());
-        IdPredicate predicate = atom.getIdPredicate(atom.getPredicateVariable());
-        return thisPredicate == null && predicate == null || thisPredicate != null && thisPredicate.isEquivalent(predicate);
-    }
 
     @Override
     public void setParentQuery(ReasonerQuery q) {
@@ -174,28 +216,30 @@ public class ResourceAtom extends Binary{
     }
 
     @Override
-    public boolean isRuleApplicable(InferenceRule child) {
-        Atom ruleAtom = child.getRuleConclusionAtom();
-        if(!(ruleAtom.isResource())) return false;
+    public boolean isRuleApplicableViaAtom(Atom ruleAtom) {
+        //findbugs complains about cast without it
+        if(!(ruleAtom instanceof ResourceAtom)) return false;
 
         ResourceAtom childAtom = (ResourceAtom) ruleAtom;
+        ReasonerQueryImpl childQuery = (ReasonerQueryImpl) childAtom.getParentQuery();
 
-        //check types
+        //check type bindings compatiblity
         TypeAtom parentTypeConstraint = this.getTypeConstraints().findFirst().orElse(null);
         TypeAtom childTypeConstraint = childAtom.getTypeConstraints().findFirst().orElse(null);
 
         SchemaConcept parentType = parentTypeConstraint != null? parentTypeConstraint.getSchemaConcept() : null;
         SchemaConcept childType = childTypeConstraint != null? childTypeConstraint.getSchemaConcept() : null;
-        if (parentType != null && childType != null && checkDisjoint(parentType, childType)) return false;
+        if (parentType != null && childType != null && areDisjointTypes(parentType, childType)
+                || !childQuery.isTypeRoleCompatible(ruleAtom.getVarName(), parentType)) return false;
 
-        //check predicates
+        //check value predicate compatibility
         if (childAtom.getMultiPredicate().isEmpty() || getMultiPredicate().isEmpty()) return true;
         for (ValuePredicate childPredicate : childAtom.getMultiPredicate()) {
             Iterator<ValuePredicate> parentIt = getMultiPredicate().iterator();
             boolean predicateCompatible = false;
             while (parentIt.hasNext() && !predicateCompatible) {
                 ValuePredicate parentPredicate = parentIt.next();
-                predicateCompatible = parentPredicate.getPredicate().isCompatibleWith(childPredicate.getPredicate());
+                predicateCompatible = parentPredicate.isCompatibleWith(childPredicate);
             }
             if (!predicateCompatible) return false;
         }
@@ -247,7 +291,7 @@ public class ResourceAtom extends Binary{
             return errors;
         }
 
-        SchemaConcept ownerType = getParentQuery().getVarSchemaConceptMap().get(getVarName());
+        SchemaConcept ownerType = getParentQuery().getVarTypeMap().get(getVarName());
 
         if (ownerType != null
                 && ownerType.isType()
@@ -320,8 +364,7 @@ public class ResourceAtom extends Binary{
     public Atom rewriteToUserDefined(Atom parentAtom){
         Var attributeVariable = getPredicateVariable();
         Var relationVariable = getRelationVariable().asUserDefined();
-        VarPattern newVar = getVarName()
-                .has(getSchemaConcept().getLabel(), attributeVariable, relationVariable);
+        VarPattern newVar = getVarName().has(getSchemaConcept().getLabel(), attributeVariable, relationVariable);
         return new ResourceAtom(newVar.admin(), attributeVariable, relationVariable, getTypePredicate(), getMultiPredicate(), getParentQuery());
     }
 
@@ -338,7 +381,7 @@ public class ResourceAtom extends Binary{
         Var parentRelationVarName = parent.getRelationVariable();
         if (parentRelationVarName.isUserDefinedName()
                 && !childRelationVarName.equals(parentRelationVarName)){
-            unifier.addMapping(childRelationVarName, parentRelationVarName);
+            unifier = unifier.merge(new UnifierImpl(ImmutableMap.of(childRelationVarName, parentRelationVarName)));
         }
         return unifier;
     }

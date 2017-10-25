@@ -23,7 +23,7 @@ import ai.grakn.concept.Concept;
 import ai.grakn.graql.GetQuery;
 import ai.grakn.graql.Graql;
 import ai.grakn.graql.QueryBuilder;
-import ai.grakn.graql.internal.reasoner.query.QueryAnswers;
+import ai.grakn.graql.admin.Answer;
 import ai.grakn.test.GraknTestSetup;
 import ai.grakn.test.SampleKBContext;
 import ai.grakn.test.kbs.DiagonalKB;
@@ -36,14 +36,15 @@ import ai.grakn.test.kbs.PathKBSymmetric;
 import ai.grakn.test.kbs.TailRecursionKB;
 import ai.grakn.test.kbs.TransitivityChainKB;
 import ai.grakn.test.kbs.TransitivityMatrixKB;
+import java.util.List;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 
+import static ai.grakn.util.GraqlTestUtil.assertCollectionsEqual;
 import static ai.grakn.util.GraqlTestUtil.assertQueriesEqual;
-import static java.util.stream.Collectors.toSet;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeTrue;
 
@@ -276,6 +277,7 @@ public class RecursiveInferenceTest {
     }
 
     //TODO remodel when repeating roles allowed
+    @Ignore
     @Test
     public void testReachabilitySymmetric(){
         QueryBuilder qb = reachabilitySymmetricContext.tx().graql().infer(false);
@@ -350,11 +352,11 @@ public class RecursiveInferenceTest {
         String queryString = "match (N-rA: $x, N-rB: $y) isa N; $x has index 'c'; get $y;";
         String explicitQuery = "match $y isa a-entity; get;";
 
-        QueryAnswers answers = queryAnswers(iqb.materialise(false).parse(queryString));
-        QueryAnswers explicitAnswers = queryAnswers(qb.parse(explicitQuery));
-        assertEquals(answers.size(), explicitAnswers.size());
-        QueryAnswers answers2 = queryAnswers(iqb.materialise(true).parse(queryString));
-        assertEquals(answers, answers2);
+        List<Answer> answers = iqb.materialise(false).<GetQuery>parse(queryString).execute();
+        List<Answer> explicitAnswers = qb.<GetQuery>parse(explicitQuery).execute();
+        assertCollectionsEqual(answers, explicitAnswers);
+        List<Answer> answers2 = iqb.materialise(true).<GetQuery>parse(queryString).execute();
+        assertCollectionsEqual(answers, answers2);
     }
 
     /**test 6.6 from Cao p.76*/
@@ -404,16 +406,16 @@ public class RecursiveInferenceTest {
         String explicitQuery = "match $y isa vertex; get;";
 
 
-        QueryAnswers answers = queryAnswers(iqb.materialise(false).parse(queryString));
-        QueryAnswers explicitAnswers = queryAnswers(qb.parse(explicitQuery));
-        QueryAnswers answers2 = queryAnswers(iqb.materialise(true).parse(queryString));
+        List<Answer> answers = iqb.materialise(false).<GetQuery>parse(queryString).execute();
+        List<Answer> explicitAnswers = qb.<GetQuery>parse(explicitQuery).execute();
+        List<Answer> answers2 = iqb.materialise(true).<GetQuery>parse(queryString).execute();
 
-        assertEquals(answers.size(), explicitAnswers.size());
-        assertEquals(answers, answers2);
+        assertCollectionsEqual(answers, explicitAnswers);
+        assertCollectionsEqual(answers, answers2);
     }
 
     private Concept getConcept(GraknTx graph, String typeName, Object val){
-        return graph.graql().match(Graql.var("x").has(typeName, val).admin()).get("x").findAny().get();
+        return graph.graql().match(Graql.var("x").has(typeName, val).admin()).get("x").findAny().orElse(null);
     }
 
     @Test
@@ -544,9 +546,5 @@ public class RecursiveInferenceTest {
 
         assertEquals(iqb.materialise(false).<GetQuery>parse(queryString).execute().size(), 64);
         assertEquals(iqb.materialise(true).<GetQuery>parse(queryString).execute().size(), 64);
-    }
-
-    private QueryAnswers queryAnswers(GetQuery query) {
-        return new QueryAnswers(query.stream().collect(toSet()));
     }
 }

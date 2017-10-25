@@ -93,11 +93,11 @@ public class TaskManagerTest {
     }
 
     @ClassRule
-    public static EngineContext engineContext = EngineContext.singleQueueServer();
+    public static EngineContext engineContext = EngineContext.createWithInMemoryRedis();
 
     @AfterClass
     public static void closeTaskManagers(){
-        TaskManagers.closeAndClear();
+        TaskManagers.close();
     }
 
     @Property(trials=10)

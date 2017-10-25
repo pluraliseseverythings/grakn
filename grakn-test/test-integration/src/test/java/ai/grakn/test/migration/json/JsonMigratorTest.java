@@ -58,13 +58,13 @@ public class JsonMigratorTest {
     private GraknSession factory;
 
     @ClassRule
-    public static final EngineContext engine = EngineContext.inMemoryServer();
+    public static final EngineContext engine = EngineContext.createWithInMemoryRedis();
 
     @Before
     public void setup(){
         Keyspace keyspace = SampleKBLoader.randomKeyspace();
         factory = Grakn.session(engine.uri(), keyspace);
-        migrator = Migrator.to(engine.uri(), keyspace);
+        migrator = new Migrator(engine.uri(), keyspace);
     }
 
     @Test
@@ -224,7 +224,7 @@ public class JsonMigratorTest {
 
     private void declareAndLoad(String template, String file){
         try(JsonMigrator m = new JsonMigrator(getFile("json", file))){
-            migrator.load(template, m.convert());
+            migrator.load(template, m.convert(), 0, false, 500);
         }
     }
 }

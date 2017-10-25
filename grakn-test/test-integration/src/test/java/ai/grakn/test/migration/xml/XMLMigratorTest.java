@@ -33,7 +33,7 @@ public class XMLMigratorTest {
     private static GraknSession session;
 
     @ClassRule
-    public static final EngineContext engine = EngineContext.inMemoryServer();
+    public static final EngineContext engine = EngineContext.createWithInMemoryRedis();
 
     @BeforeClass
     public static void loadSchema(){
@@ -105,7 +105,7 @@ public class XMLMigratorTest {
         MigratorTestUtils.load(session, MigratorTestUtils.getFile("xml", "schema.gql"));
 
         // load the data
-        Migrator migrator = Migrator.to(engine.uri(), keyspace);
+        Migrator migrator = new Migrator(engine.uri(), keyspace);
 
         File xmlFile = MigratorTestUtils.getFile("xml", "data.xml");
 

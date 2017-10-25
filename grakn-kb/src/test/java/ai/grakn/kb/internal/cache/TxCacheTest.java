@@ -24,7 +24,7 @@ import ai.grakn.concept.Attribute;
 import ai.grakn.concept.AttributeType;
 import ai.grakn.concept.Entity;
 import ai.grakn.concept.EntityType;
-import ai.grakn.concept.Relationship;
+import ai.grakn.concept.Label;
 import ai.grakn.concept.RelationshipType;
 import ai.grakn.concept.Role;
 import ai.grakn.concept.SchemaConcept;
@@ -50,6 +50,8 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
@@ -127,23 +129,6 @@ public class TxCacheTest extends TxTestBase {
     }
 
     @Test
-    public void whenCreatingRelations_EnsureLogContainsRelation(){
-        Role r1 = tx.putRole("r1");
-        Role r2 = tx.putRole("r2");
-        EntityType t1 = tx.putEntityType("t1").plays(r1).plays(r2);
-        RelationshipType rt1 = tx.putRelationshipType("rel1").relates(r1).relates(r2);
-        Entity i1 = t1.addEntity();
-        Entity i2 = t1.addEntity();
-
-        tx.commit();
-        tx = (GraknTxAbstract<?>) Grakn.session(Grakn.IN_MEMORY, tx.getKeyspace()).open(GraknTxType.WRITE);
-
-        assertThat(tx.txCache().getModifiedRelationships(), is(empty()));
-        Relationship rel1 = rt1.addRelationship().addRolePlayer(r1, i1).addRolePlayer(r2, i2);
-        assertThat(tx.txCache().getModifiedRelationships(), containsInAnyOrder(rel1));
-    }
-
-    @Test
     public void whenDeletingAnInstanceWithNoRelations_EnsureLogIsEmpty(){
         EntityType t1 = tx.putEntityType("1");
         Entity i1 = t1.addEntity();
@@ -151,10 +136,10 @@ public class TxCacheTest extends TxTestBase {
         tx.commit();
         tx = (GraknTxAbstract<?>) Grakn.session(Grakn.IN_MEMORY, tx.getKeyspace()).open(GraknTxType.WRITE);
 
-        assertThat(tx.txCache().getModifiedEntities(), is(empty()));
+        assertThat(tx.txCache().getModifiedThings(), is(empty()));
 
         i1.delete();
-        assertThat(tx.txCache().getModifiedEntities(), is(empty()));
+        assertThat(tx.txCache().getModifiedThings(), is(empty()));
     }
 
     @Test
@@ -232,7 +217,6 @@ public class TxCacheTest extends TxTestBase {
         assertThat(cache.getConceptCache().keySet(), not(empty()));
         assertThat(cache.getSchemaConceptCache().keySet(), not(empty()));
         assertThat(cache.getLabelCache().keySet(), not(empty()));
-        assertThat(cache.getRelationIndexCache().keySet(), not(empty()));
         assertThat(cache.getShardingCount().keySet(), not(empty()));
         assertThat(cache.getModifiedCastings(), not(empty()));
 
@@ -243,14 +227,11 @@ public class TxCacheTest extends TxTestBase {
         assertThat(cache.getConceptCache().keySet(), empty());
         assertThat(cache.getSchemaConceptCache().keySet(), empty());
         assertThat(cache.getLabelCache().keySet(), empty());
-        assertThat(cache.getRelationIndexCache().keySet(), empty());
         assertThat(cache.getShardingCount().keySet(), empty());
-        assertThat(cache.getModifiedEntities(), empty());
+        assertThat(cache.getModifiedThings(), empty());
         assertThat(cache.getModifiedRoles(), empty());
         assertThat(cache.getModifiedRelationshipTypes(), empty());
-        assertThat(cache.getModifiedRelationships(), empty());
         assertThat(cache.getModifiedRules(), empty());
-        assertThat(cache.getModifiedAttributes(), empty());
         assertThat(cache.getModifiedCastings(), empty());
     }
 
@@ -268,6 +249,27 @@ public class TxCacheTest extends TxTestBase {
         //Mutate Super Type
         e2.sup(e3);
         assertTxBoundConceptMatches(e2, Type::sup, is(e3));
+    }
+
+    @Test
+    public void whenDeletingType_EnsureItIsRemovedFromTheCache(){
+        String label = "e1";
+        tx.putEntityType(label);
+        tx.commit();
+
+        tx = tx();
+        EntityType entityType = tx.getEntityType(label);
+        assertNotNull(entityType);
+        assertTrue(tx.txCache().isTypeCached(Label.of(label)));
+        entityType.delete();
+
+        assertNull(tx.getEntityType(label));
+        assertFalse(tx.txCache().isTypeCached(Label.of(label)));
+        tx.commit();
+
+        tx = tx();
+        assertNull(tx.getEntityType(label));
+        assertFalse(tx.txCache().isTypeCached(Label.of(label)));
     }
 
     @Test

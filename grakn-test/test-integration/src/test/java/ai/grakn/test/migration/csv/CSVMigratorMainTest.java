@@ -44,11 +44,12 @@ public class CSVMigratorMainTest {
     private Keyspace keyspace;
 
     private final String dataFile = getFile("csv", "pets/data/pets.csv").getAbsolutePath();
+    private final String dataFileBroken = getFile("csv", "pets/data/petsbroken.csv").getAbsolutePath();
     private final String templateFile = getFile("csv", "pets/template.gql").getAbsolutePath();
     private final String templateCorruptFile = getFile("csv", "pets/template-corrupt.gql").getAbsolutePath();
 
     @ClassRule
-    public static final EngineContext engine = EngineContext.inMemoryServer();
+    public static final EngineContext engine = EngineContext.createWithInMemoryRedis();
 
     @Rule
     public final SystemOutRule sysOut = new SystemOutRule().enableLog();
@@ -63,20 +64,17 @@ public class CSVMigratorMainTest {
     public void setup(){
         keyspace = SampleKBLoader.randomKeyspace();
         factory = Grakn.session(engine.uri(), keyspace);
-
         load(factory, getFile("csv", "pets/schema.gql"));
-    }
-
-    @Test
-    public void whenAFailureOccursDuringLoadingAndTheDebugFlagIsSet_Throw(){
-        expectedException.expect(RuntimeException.class);
-
-        run("-d", "-u", engine.uri(), "-input", dataFile, "-template", templateCorruptFile, "-keyspace", keyspace.getValue());
     }
 
     @Test
     public void whenAFailureOccursDuringLoadingAndTheDebugFlagIsNotSet_DontThrow(){
         run("-u", engine.uri(), "-input", dataFile, "-template", templateCorruptFile, "-keyspace", keyspace.getValue());
+    }
+
+    @Test
+    public void whenAFailureOccursDuringLoadingAndTheDebugFlagIsNotSet_DontThrowAndContinue(){
+        runAndAssertDataCorrect("-u", engine.uri(), "-input", dataFileBroken, "-template", templateFile, "-keyspace", keyspace.getValue());
     }
 
     @Test
@@ -110,7 +108,7 @@ public class CSVMigratorMainTest {
 
     @Test
     public void specifyingIncorrectURIInCSVMigratorScript_ErrorIsPrintedToSystemErr(){
-        run("csv", "-input", dataFile, "-template", templateFile, "-uri", "localhost:" + engine.uri().substring(1), "-keyspace", keyspace.getValue());
+        run("csv", "-input", dataFile, "-template", templateFile, "-uri", "192.0.2.4:4567", "-keyspace", keyspace.getValue());
 
         assertThat(sysErr.getLog(), containsString("Could not connect to Grakn Engine. Have you run 'grakn server start'?"));
     }

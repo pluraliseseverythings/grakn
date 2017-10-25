@@ -21,8 +21,8 @@ package ai.grakn.test.engine.lock;
 import ai.grakn.engine.lock.JedisLock;
 import ai.grakn.engine.lock.NonReentrantLock;
 import ai.grakn.test.EngineContext;
+import java.util.UUID;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.experimental.theories.DataPoints;
 import org.junit.experimental.theories.Theories;
@@ -30,18 +30,15 @@ import org.junit.experimental.theories.Theory;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 
-import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
-
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-@Ignore("Ignored due to failing randomly on travis because of redis failures")
 @RunWith(Theories.class)
 public class LockTestIT {
 
@@ -51,7 +48,7 @@ public class LockTestIT {
     public ExpectedException exception = ExpectedException.none();
 
     @ClassRule
-    public static EngineContext engineContext = EngineContext.singleQueueServer();
+    public static EngineContext engine = EngineContext.createWithInMemoryRedis();
 
     @DataPoints
     public static Locks[] configValues = Locks.values();
@@ -63,7 +60,7 @@ public class LockTestIT {
     private Lock getLock(Locks lock, String lockName){
         switch (lock){
             case REDIS:
-                return new JedisLock(engineContext.getJedisPool(), lockName);
+                return new JedisLock(engine.getJedisPool(), lockName);
             case NONREENTRANT:
                 return new NonReentrantLock();
         }
@@ -72,7 +69,7 @@ public class LockTestIT {
 
     private Lock copy(Lock lock){
         if(lock instanceof JedisLock){
-            return new JedisLock(engineContext.getJedisPool(), ((JedisLock) lock).getLockName());
+            return new JedisLock(engine.getJedisPool(), ((JedisLock) lock).getLockName());
         } else if(lock instanceof NonReentrantLock){
             return lock;
         }

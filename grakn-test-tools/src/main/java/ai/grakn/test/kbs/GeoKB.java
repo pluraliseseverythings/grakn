@@ -133,16 +133,8 @@ public class GeoKB extends TestKB {
                 .addRolePlayer(entityLocation, Poland);
 
         isLocatedIn.addRelationship()
-                .addRolePlayer(geoEntity, Silesia)
-                .addRolePlayer(entityLocation, Poland);
-
-        isLocatedIn.addRelationship()
                 .addRolePlayer(geoEntity, Warsaw)
                 .addRolePlayer(entityLocation, Masovia);
-
-        isLocatedIn.addRelationship()
-                .addRolePlayer(geoEntity, Wroclaw)
-                .addRolePlayer(entityLocation, Silesia);
 
         isLocatedIn.addRelationship()
                 .addRolePlayer(geoEntity, PW)
@@ -151,6 +143,15 @@ public class GeoKB extends TestKB {
         isLocatedIn.addRelationship()
                 .addRolePlayer(geoEntity, UW)
                 .addRolePlayer(entityLocation, Warsaw);
+
+        isLocatedIn.addRelationship()
+                .addRolePlayer(geoEntity, Silesia)
+                .addRolePlayer(entityLocation, Poland);
+
+        isLocatedIn.addRelationship()
+                .addRolePlayer(geoEntity, Wroclaw)
+                .addRolePlayer(entityLocation, Silesia);
+
 
 
         isLocatedIn.addRelationship()
@@ -198,15 +199,13 @@ public class GeoKB extends TestKB {
         isLocatedIn.addRelationship()
                 .addRolePlayer(geoEntity, France)
                 .addRolePlayer(entityLocation, Europe);
-
     }
 
     @Override
     public void buildRules(GraknTx tx) {
-        Pattern transitivity_LHS = tx.graql().parsePattern(
-                "{(geo-entity: $x, entity-location: $y) isa is-located-in;" +
+        Pattern transitivity_LHS = tx.graql().parser().parsePattern("{(geo-entity: $x, entity-location: $y) isa is-located-in;" +
                 "(geo-entity: $y, entity-location: $z) isa is-located-in;}");
-        Pattern transitivity_RHS = tx.graql().parsePattern("{(geo-entity: $x, entity-location: $z) isa is-located-in;}");
+        Pattern transitivity_RHS = tx.graql().parser().parsePattern("{(geo-entity: $x, entity-location: $z) isa is-located-in;}");
         tx.putRule("Geo Rule", transitivity_LHS, transitivity_RHS);
     }
 }

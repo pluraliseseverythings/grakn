@@ -53,16 +53,16 @@ public class RelationshipTypeImpl extends TypeImpl<RelationshipType, Relationshi
         super(vertexElement);
     }
 
-    private RelationshipTypeImpl(VertexElement vertexElement, RelationshipType type, Boolean isImplicit) {
-        super(vertexElement, type, isImplicit);
+    private RelationshipTypeImpl(VertexElement vertexElement, RelationshipType type) {
+        super(vertexElement, type);
     }
 
     public static RelationshipTypeImpl get(VertexElement vertexElement){
         return new RelationshipTypeImpl(vertexElement);
     }
 
-    public static RelationshipTypeImpl create(VertexElement vertexElement, RelationshipType type, Boolean isImplicit){
-        RelationshipTypeImpl relationType = new RelationshipTypeImpl(vertexElement, type, isImplicit);
+    public static RelationshipTypeImpl create(VertexElement vertexElement, RelationshipType type){
+        RelationshipTypeImpl relationType = new RelationshipTypeImpl(vertexElement, type);
         vertexElement.tx().txCache().trackForValidation(relationType);
         return relationType;
     }
@@ -103,9 +103,6 @@ public class RelationshipTypeImpl extends TypeImpl<RelationshipType, Relationshi
         //Cache the relation type in the role
         ((RoleImpl) role).addCachedRelationType(this);
 
-        //Put all the instance back in for tracking because their unique hashes need to be regenerated
-        instances().forEach(instance -> vertex().tx().txCache().trackForValidation(instance));
-
         return this;
     }
 
@@ -135,9 +132,6 @@ public class RelationshipTypeImpl extends TypeImpl<RelationshipType, Relationshi
 
         //Remove from roleTypeCache
         ((RoleImpl) role).deleteCachedRelationType(this);
-
-        //Put all the instance back in for tracking because their unique hashes need to be regenerated
-        instances().forEach(instance -> vertex().tx().txCache().trackForValidation(instance));
 
         return this;
     }

@@ -19,30 +19,28 @@
 package ai.grakn.test;
 
 import ai.grakn.Grakn;
+import ai.grakn.GraknConfigKey;
 import ai.grakn.GraknSession;
 import ai.grakn.engine.GraknEngineConfig;
 import ai.grakn.engine.GraknEngineServer;
 import ai.grakn.engine.tasks.connection.RedisCountStorage;
-import ai.grakn.engine.tasks.manager.StandaloneTaskManager;
 import ai.grakn.engine.tasks.manager.TaskManager;
-import ai.grakn.engine.tasks.manager.redisqueue.RedisTaskManager;
 import ai.grakn.engine.tasks.mock.MockBackgroundTask;
-import ai.grakn.engine.util.SimpleURI;
+import ai.grakn.util.SimpleURI;
+import ai.grakn.util.EmbeddedRedis;
+import ai.grakn.util.MockRedisRule;
 import com.codahale.metrics.MetricRegistry;
+import com.google.common.collect.Iterables;
 import com.jayway.restassured.RestAssured;
 import org.junit.rules.ExternalResource;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
-import javax.annotation.Nullable;
+import java.io.IOException;
 
-import static ai.grakn.engine.GraknEngineConfig.REDIS_HOST;
-import static ai.grakn.engine.GraknEngineConfig.TASK_MANAGER_IMPLEMENTATION;
 import static ai.grakn.engine.util.ExceptionWrapper.noThrow;
 import static ai.grakn.test.GraknTestEngineSetup.startEngine;
-import static ai.grakn.test.GraknTestEngineSetup.startRedis;
 import static ai.grakn.test.GraknTestEngineSetup.stopEngine;
-import static ai.grakn.test.GraknTestEngineSetup.stopRedis;
 import static ai.grakn.util.SampleKBLoader.randomKeyspace;
 
 
@@ -57,30 +55,38 @@ public class EngineContext extends ExternalResource {
 
     private GraknEngineServer server;
 
-    private final boolean startSingleQueueEngine;
-    private final boolean startStandaloneEngine;
     private final GraknEngineConfig config = GraknTestEngineSetup.createTestConfig();
+    private final boolean inMemoryRedis;
+    private MockRedisRule mockRedis;
     private JedisPool jedisPool;
+    private MetricRegistry metricRegistry;
 
-    private EngineContext(boolean startSingleQueueEngine, boolean startStandaloneEngine){
-        this.startSingleQueueEngine = startSingleQueueEngine;
-        this.startStandaloneEngine = startStandaloneEngine;
+    private EngineContext(boolean inMemoryRedis){
+        this.inMemoryRedis = inMemoryRedis;
     }
 
-    public static EngineContext noQueue(){
-        return new EngineContext( false, false);
+    /**
+     * Creates a {@link EngineContext} for testing which uses a real embedded redis.
+     * This should only be used for benchmark testing where performance and memory usage matters.
+     *
+     * @return a new {@link EngineContext} for testing
+     */
+    public static EngineContext createWithEmbeddedRedis(){
+        return new EngineContext(false);
     }
 
-    public static EngineContext singleQueueServer(){
-        return new EngineContext( true, false);
-    }
-
-    public static EngineContext inMemoryServer(){
-        return new EngineContext( true, true);
+    /**
+     * Creates a {@link EngineContext} for testing which uses an in-memory redis mock.
+     * This is the default test environment which should be used because starting an embedded redis is a costly process.
+     *
+     * @return a new {@link EngineContext} for testing
+     */
+    public static EngineContext createWithInMemoryRedis(){
+        return new EngineContext(true);
     }
 
     public int port() {
-        return config.getPropertyAsInt(GraknEngineConfig.SERVER_PORT_NUMBER);
+        return config.getProperty(GraknConfigKey.SERVER_PORT);
     }
 
     public GraknEngineServer server() {
@@ -92,7 +98,7 @@ public class EngineContext extends ExternalResource {
     }
 
     public RedisCountStorage redis() {
-        return redis(config.getProperty(REDIS_HOST));
+        return redis(Iterables.getOnlyElement(config.getProperty(GraknConfigKey.REDIS_HOST)));
     }
 
     public RedisCountStorage redis(String uri) {
@@ -103,7 +109,8 @@ public class EngineContext extends ExternalResource {
     public RedisCountStorage redis(String host, int port) {
         JedisPoolConfig poolConfig = new JedisPoolConfig();
         this.jedisPool = new JedisPool(poolConfig, host, port);
-        return RedisCountStorage.create(jedisPool, new MetricRegistry());
+        this.metricRegistry = new MetricRegistry();
+        return RedisCountStorage.create(jedisPool, metricRegistry);
     }
 
     public TaskManager getTaskManager(){
@@ -120,56 +127,63 @@ public class EngineContext extends ExternalResource {
 
     @Override
     public void before() throws Throwable {
-        RestAssured.baseURI = "http://" + config.getProperty("server.host") + ":" + config.getProperty("server.port");
-        if (!config.getPropertyAsBool("test.start.embedded.components", true)) {
+        RestAssured.baseURI = "http://" + config.uri();
+        if (!config.getProperty(GraknConfigKey.TEST_START_EMBEDDED_COMPONENTS)) {
             return;
         }
 
         try {
-            SimpleURI redisURI = new SimpleURI(config.getProperty(REDIS_HOST));
-            startRedis(redisURI.getPort());
+            SimpleURI redisURI = new SimpleURI(Iterables.getOnlyElement(config.getProperty(GraknConfigKey.REDIS_HOST)));
+            redisStart(redisURI);
+
             jedisPool = new JedisPool(redisURI.getHost(), redisURI.getPort());
 
-            @Nullable Class<? extends TaskManager> taskManagerClass = null;
-
-            if(startSingleQueueEngine){
-                taskManagerClass = RedisTaskManager.class;
-            }
-
-            if (startStandaloneEngine){
-                taskManagerClass = StandaloneTaskManager.class;
-            }
-
-            if (taskManagerClass != null) {
-                config.setConfigProperty(TASK_MANAGER_IMPLEMENTATION, taskManagerClass.getName());
-                server = startEngine(config);
-            }
+            server = startEngine(config);
         } catch (Exception e) {
-            stopRedis();
+            if(mockRedis != null) mockRedis.server().stop();
             throw e;
         }
 
     }
 
+    private void redisStart(SimpleURI redisURI) throws IOException {
+        if(inMemoryRedis) {
+            mockRedis = MockRedisRule.create(redisURI.getPort());
+            mockRedis.server().start();
+        } else {
+            EmbeddedRedis.start(redisURI.getPort());
+        }
+    }
+
     @Override
     public void after() {
-        if (!config.getPropertyAsBool("test.start.embedded.components", true)) {
+        if (!config.getProperty(GraknConfigKey.TEST_START_EMBEDDED_COMPONENTS)) {
             return;
         }
         noThrow(MockBackgroundTask::clearTasks, "Error clearing tasks");
 
         try {
-            if(startSingleQueueEngine | startStandaloneEngine){
-                noThrow(() -> stopEngine(server), "Error closing engine");
-            }
+            noThrow(() -> stopEngine(server), "Error closing engine");
             getJedisPool().close();
-            stopRedis();
+            redisStop();
         } catch (Exception e){
             throw new RuntimeException("Could not shut down ", e);
         }
     }
 
+    private void redisStop(){
+        if(inMemoryRedis){
+            if(mockRedis != null) mockRedis.server().stop();
+        } else {
+            EmbeddedRedis.stop();
+        }
+    }
+
     public JedisPool getJedisPool() {
         return jedisPool;
+    }
+
+    public MetricRegistry getMetricRegistry() {
+        return metricRegistry;
     }
 }

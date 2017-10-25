@@ -21,7 +21,7 @@ package ai.grakn.graql.internal.reasoner.cache;
 import ai.grakn.concept.Concept;
 import ai.grakn.graql.Var;
 import ai.grakn.graql.admin.Answer;
-import ai.grakn.graql.admin.Unifier;
+import ai.grakn.graql.admin.MultiUnifier;
 import ai.grakn.graql.internal.reasoner.iterator.LazyIterator;
 import ai.grakn.graql.internal.reasoner.query.ReasonerQueryImpl;
 import ai.grakn.graql.internal.reasoner.utils.Pair;
@@ -48,13 +48,23 @@ import java.util.stream.Stream;
  */
 public abstract class Cache<Q extends ReasonerQueryImpl, T extends Iterable<Answer>>{
 
-    private final Map<Q, Pair<Q, T>> cache = new HashMap<>();
+    private final Map<Q, CacheEntry<Q, T>> cache = new HashMap<>();
+    private final StructuralCache<Q> sCache;
+
+    Cache(){
+        this.sCache = new StructuralCache<>();
+    }
+
+    /**
+     * @return structural cache of this cache
+     */
+    public StructuralCache<Q> structuralCache(){ return sCache;}
 
     /**
      * @param query for which the entry is to be retrieved
      * @return corresponding cache entry if any or null
      */
-    public Pair<Q, T> get(Q query){ return cache.get(query);}
+    public CacheEntry<Q, T> get(Q query){ return cache.get(query);}
 
     /**
      * Associates the specified answers with the specified query in this cache adding an (query) -> (answers) entry
@@ -62,13 +72,13 @@ public abstract class Cache<Q extends ReasonerQueryImpl, T extends Iterable<Answ
      * @param answers of the association
      * @return previous value if any or null
      */
-    public Pair<Q, T> put(Q query, T answers){ return cache.put(query, new Pair<>(query, answers));}
+    public CacheEntry<Q, T> put(Q query, T answers){ return cache.put(query, new CacheEntry<>(query, answers));}
 
     /**
      * Copies all of the mappings from the specified map to this cache
      * @param map with mappings to be copied
      */
-    public void putAll(Map<Q, Pair<Q, T>> map){ cache.putAll(map);}
+    public void putAll(Map<Q, CacheEntry<Q, T>> map){ cache.putAll(map);}
 
     /**
      * Perform cache union
@@ -93,7 +103,7 @@ public abstract class Cache<Q extends ReasonerQueryImpl, T extends Iterable<Answ
     /**
      * @return all (query) -> (answers) mappings
      */
-    public Collection<Pair<Q, T>> entries(){ return cache.values();}
+    public Collection<CacheEntry<Q, T>> entries(){ return cache.values();}
 
     /**
      * Perform cache difference
@@ -136,9 +146,9 @@ public abstract class Cache<Q extends ReasonerQueryImpl, T extends Iterable<Answ
      * @return unified cached answers
      */
     public abstract T getAnswers(Q query);
-    public abstract Pair<T, Unifier> getAnswersWithUnifier(Q query);
+    public abstract Pair<T, MultiUnifier> getAnswersWithUnifier(Q query);
     public abstract Stream<Answer> getAnswerStream(Q query);
-    public abstract Pair<Stream<Answer>, Unifier> getAnswerStreamWithUnifier(Q query);
+    public abstract Pair<Stream<Answer>, MultiUnifier> getAnswerStreamWithUnifier(Q query);
     public abstract LazyIterator<Answer> getAnswerIterator(Q query);
 
     /**

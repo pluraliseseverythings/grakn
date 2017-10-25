@@ -45,14 +45,16 @@ import java.util.stream.Collectors;
 public class ValuePredicate extends Predicate<ai.grakn.graql.ValuePredicate> {
 
     public ValuePredicate(VarPatternAdmin pattern, ReasonerQuery par) { super(pattern, par);}
-    public ValuePredicate(Var varName, ai.grakn.graql.ValuePredicate pred, ReasonerQuery par){
-        this(createValueVar(varName, pred), par);}
+    public ValuePredicate(Var varName, ai.grakn.graql.ValuePredicate pred, ReasonerQuery par){ this(createValueVar(varName, pred), par);}
     private ValuePredicate(ValuePredicate pred) { super(pred);}
 
     @Override
     public Atomic copy() {
         return new ValuePredicate(this);
     }
+
+    @Override
+    public String toString(){ return "[" + getVarName() + " val " + getPredicate() + "]"; }
 
     public Set<ValuePredicate> unify(Unifier u){
         Collection<Var> vars = u.get(getVarName());
@@ -84,17 +86,26 @@ public class ValuePredicate extends Predicate<ai.grakn.graql.ValuePredicate> {
     }
 
     @Override
-    public boolean isEquivalent(Object obj){
+    public boolean isAlphaEquivalent(Object obj){
         if (obj == null || this.getClass() != obj.getClass()) return false;
         if (obj == this) return true;
-        ValuePredicate a2 = (ValuePredicate) obj;
-        return this.getPredicate().getClass().equals(a2.getPredicate().getClass()) &&
-                this.getPredicateValue().equals(a2.getPredicateValue());
+        ValuePredicate p2 = (ValuePredicate) obj;
+        return this.getPredicate().getClass().equals(p2.getPredicate().getClass()) &&
+                this.getPredicateValue().equals(p2.getPredicateValue());
     }
 
     @Override
-    public int equivalenceHashCode() {
-        int hashCode = super.equivalenceHashCode();
+    public boolean isCompatibleWith(Object obj) {
+        if (this.isAlphaEquivalent(obj)) return true;
+        if (obj == null || this.getClass() != obj.getClass()) return false;
+        if (obj == this) return true;
+        ValuePredicate p2 = (ValuePredicate) obj;
+        return getPredicate().isCompatibleWith(p2.getPredicate());
+    }
+
+    @Override
+    public int alphaEquivalenceHashCode() {
+        int hashCode = super.alphaEquivalenceHashCode();
         hashCode = hashCode * 37 + this.getPredicate().getClass().getName().hashCode();
         return hashCode;
     }

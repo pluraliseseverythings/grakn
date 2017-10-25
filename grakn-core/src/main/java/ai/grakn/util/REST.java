@@ -64,6 +64,7 @@ public class REST {
             public static final String CONFIGURATION = "/configuration";
             public static final String METRICS = "/metrics";
             public static final String KEYSPACES = "/keyspaces";
+            public static final String KEYSPACE = "/keyspaces/:keyspace";
         }
 
         /**
@@ -188,8 +189,10 @@ public class REST {
         public static final class Graql {
             public static final String QUERY = "query";
             public static final String INFER = "infer";
+            public static final String MULTI = "multi";
             public static final String MATERIALISE = "materialise";
             public static final String LIMIT_EMBEDDED = "limitEmbedded";
+            public static final String DEFINE_ALL_VARS = "defineAllVars";
         }
     }
 
@@ -253,6 +256,7 @@ public class REST {
          */
         public static class Task {
             public static final String STACK_TRACE = "stackTrace";
+            public static final String EXCEPTION = "exception";
             public static final String ID = "id";
             public static final String STATUS = "status";
         }

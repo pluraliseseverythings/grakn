@@ -18,6 +18,7 @@
 
 package ai.grakn.graql.internal.reasoner;
 
+import ai.grakn.GraknTx;
 import ai.grakn.concept.Label;
 import ai.grakn.graql.GetQuery;
 import ai.grakn.graql.QueryBuilder;
@@ -27,6 +28,7 @@ import ai.grakn.graql.admin.Answer;
 import ai.grakn.test.GraknTestSetup;
 import ai.grakn.test.SampleKBContext;
 import com.google.common.collect.Sets;
+import org.apache.commons.collections.CollectionUtils;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Ignore;
@@ -50,6 +52,7 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
+import org.apache.commons.math3.util.CombinatoricsUtils;
 
 /**
  * Suite of tests checking different meanders and aspects of reasoning - full reasoning cycle is being tested.
@@ -109,9 +112,6 @@ public class ReasoningTests {
 
     @ClassRule
     public static final SampleKBContext testSet17 = SampleKBContext.preLoad("testSet17.gql").assumeTrue(GraknTestSetup.usingTinker());
-
-    @ClassRule
-    public static final SampleKBContext testSet18 = SampleKBContext.preLoad("testSet18.gql").assumeTrue(GraknTestSetup.usingTinker());
 
     @ClassRule
     public static final SampleKBContext testSet19 = SampleKBContext.preLoad("testSet19.gql").assumeTrue(GraknTestSetup.usingTinker());
@@ -187,8 +187,8 @@ public class ReasoningTests {
         List<Answer> answers = qb.<GetQuery>parse(queryString).execute();
         List<Answer> answers2 = qb.<GetQuery>parse(queryString2).execute();
 
-        assertEquals(1, answers.size());
-        assertEquals(5, answers2.size());
+        assertEquals(2, answers.size());
+        assertEquals(8, answers2.size());
         assertNotEquals(answers.size() * answers2.size(), 0);
         answers.forEach(x -> assertEquals(x.size(), 1));
         answers2.forEach(x -> assertEquals(x.size(), 2));
@@ -326,25 +326,46 @@ public class ReasoningTests {
     }
 
     @Test //Expected result: When the head of a rule contains resource assertions, the respective unique resources should be generated or reused.
-    public void reusingResources() {
+    public void reusingResources_usingExistingResourceToDefineResource() {
         QueryBuilder qb = testSet14.tx().graql().infer(true);
 
-        String queryString = "match $x isa entity1, has res1 $y; get;";
+        String queryString = "match $x isa entity1, has resource $y; get;";
         List<Answer> answers = qb.<GetQuery>parse(queryString).execute();
-        String queryString2 = "match $x isa res1; get;";
+        String queryString2 = "match $x isa resource; get;";
         List<Answer> answers2 = qb.<GetQuery>parse(queryString2).execute();
 
         assertEquals(answers.size(), 2);
         assertEquals(answers2.size(), 1);
     }
 
+    //TODO potentially a graql bug when executing match insert on shared resources
+    @Ignore
+    @Test //Expected result: When the head of a rule contains resource assertions, the respective unique resources should be generated or reused.
+    public void reusingResources_usingExistingResourceToDefineSubResource() {
+        QueryBuilder qb = testSet14.tx().graql().infer(true);
+        String queryString = "match $x isa entity1, has subResource $y;";
+        List<Answer> answers = qb.<GetQuery>parse(queryString).execute();
+        assertEquals(answers.size(), 1);
+
+        String queryString2 = "match $x isa subResource;";
+        List<Answer> answers2 = qb.<GetQuery>parse(queryString2).execute();
+        assertEquals(answers2.size(), 1);
+        assertTrue(answers2.iterator().next().get(var("x")).isAttribute());
+        String queryString3 = "match $x isa resource; $y isa subResource;";
+        List<Answer> answers3 = qb.<GetQuery>parse(queryString3).execute();
+        assertEquals(answers3.size(), 1);
+
+        assertTrue(answers3.iterator().next().get(var("x")).isAttribute());
+        assertTrue(answers3.iterator().next().get(var("y")).isAttribute());
+    }
+
     @Test
     public void whenReasoningWithResourcesWithRelationVar_ResultsAreComplete() {
         QueryBuilder qb = testSet14.tx().graql().infer(true);
 
-        VarPattern has = var("x").has(Label.of("res1"), var("y"), var("r"));
+        VarPattern has = var("x").has(Label.of("resource"), var("y"), var("r"));
         List<Answer> answers = qb.match(has).get().execute();
-        assertEquals(answers.size(), 2);
+        assertEquals(answers.size(), 3);
         answers.forEach(a -> assertTrue(a.vars().contains(var("r"))));
     }
 
@@ -353,50 +374,30 @@ public class ReasoningTests {
         QueryBuilder withInference = testSet14.tx().graql().infer(true);
         QueryBuilder withoutInference = testSet14.tx().graql().infer(false);
 
-        VarPattern owner = label(HAS_OWNER.getLabel("res1"));
-        VarPattern value = label(HAS_VALUE.getLabel("res1"));
-        VarPattern hasRes = label(HAS.getLabel("res1"));
+        VarPattern owner = label(HAS_OWNER.getLabel("resource"));
+        VarPattern value = label(HAS_VALUE.getLabel("resource"));
+        VarPattern hasRes = label(HAS.getLabel("resource"));
 
         Function<QueryBuilder, GetQuery> query = qb -> qb.match(
                 var().rel(owner, "x").rel(value, "y").isa(hasRes),
-                var("a").has("res1", var("b"))  // This pattern is added only to encourage reasoning to activate
+                var("a").has("resource", var("b"))  // This pattern is added only to encourage reasoning to activate
         ).get();
 
-        Set<Answer> resultsWithInference = query.apply(withInference).stream().collect(toSet());
+
         Set<Answer> resultsWithoutInference = query.apply(withoutInference).stream().collect(toSet());
+        Set<Answer> resultsWithInference = query.apply(withInference).stream().collect(toSet());
 
         assertThat(resultsWithoutInference, not(empty()));
         assertThat(Sets.difference(resultsWithoutInference, resultsWithInference), empty());
     }
 
-    //TODO potentially a graql bug when executing match insert on shared resources
-    @Ignore
     @Test //Expected result: When the head of a rule contains resource assertions, the respective unique resources should be generated or reused.
-    public void reusingResources2() {
-        QueryBuilder qb = testSet15.tx().graql().infer(true);
-        String queryString = "match $x isa entity1, has res2 $y;";
+    public void reusingResources_attachingExistingResourceToARelation() {
+        QueryBuilder qb = testSet14.tx().graql().infer(true);
+
+        String queryString = "match $x isa entity1, has resource $y; $z isa relation; get;";
         List<Answer> answers = qb.<GetQuery>parse(queryString).execute();
-        assertEquals(answers.size(), 1);
-
-        String queryString2 = "match $x isa res2;";
-        List<Answer> answers2 = qb.<GetQuery>parse(queryString2).execute();
-        assertEquals(answers2.size(), 1);
-        assertTrue(answers2.iterator().next().get(var("x")).isAttribute());
-        String queryString3 = "match $x isa res1; $y isa res2;";
-        List<Answer> answers3 = qb.<GetQuery>parse(queryString3).execute();
-        assertEquals(answers3.size(), 1);
-
-        assertTrue(answers3.iterator().next().get(var("x")).isAttribute());
-        assertTrue(answers3.iterator().next().get(var("y")).isAttribute());
-    }
-
-    @Test //Expected result: When the head of a rule contains resource assertions, the respective unique resources should be generated or reused.
-    public void reusingResources3() {
-        QueryBuilder qb = testSet16.tx().graql().infer(true);
-
-        String queryString = "match $x isa entity1, has res1 $y; $z isa relation1; get;";
-        List<Answer> answers = qb.<GetQuery>parse(queryString).execute();
-        assertEquals(answers.size(), 1);
+        assertEquals(answers.size(), 2);
         answers.forEach(ans ->
                 {
                     assertTrue(ans.get(var("x")).isEntity());
@@ -405,7 +406,7 @@ public class ReasoningTests {
                 }
         );
 
-        String queryString2 = "match $x isa relation1, has res1 $y; get;";
+        String queryString2 = "match $x isa relation, has resource $y; get;";
         List<Answer> answers2 = qb.<GetQuery>parse(queryString2).execute();
         assertEquals(answers2.size(), 1);
         answers2.forEach(ans ->
@@ -417,18 +418,18 @@ public class ReasoningTests {
     }
 
     @Test //Expected result: When the head of a rule contains resource assertions, the respective unique resources should be generated or reused.
-    public void reusingResources4() {
-        QueryBuilder qb = testSet17.tx().graql().infer(true);
-        String queryString = "match $x has res2 $r; get;";
+    public void reusingResources_definingResourceThroughOtherResourceWithConditionalValue() {
+        QueryBuilder qb = testSet15.tx().graql().infer(true);
+        String queryString = "match $x has boolean-resource $r; get;";
         List<Answer> answers = qb.<GetQuery>parse(queryString).execute();
         assertEquals(answers.size(), 1);
     }
 
     @Test //Expected result: When the head of a rule contains resource assertions, the respective unique resources should be generated or reused.
     public void inferringSpecificResourceValue() {
-        QueryBuilder qb = testSet18.tx().graql().infer(true);
-        String queryString = "match $x has res1 'value'; get;";
-        String queryString2 = "match $x has res1 $r; get;";
+        QueryBuilder qb = testSet16.tx().graql().infer(true);
+        String queryString = "match $x has resource 'value'; get;";
+        String queryString2 = "match $x has resource $r; get;";
         GetQuery query = qb.parse(queryString);
         GetQuery query2 = qb.parse(queryString2);
         List<Answer> answers = query.execute();
@@ -438,6 +439,72 @@ public class ReasoningTests {
         assertEquals(answers.size(), answers2.size());
         assertEquals(answers.size(), requeriedAnswers.size());
         assertTrue(answers.containsAll(requeriedAnswers));
+    }
+
+    @Test
+    public void resourcesAsRolePlayers() {
+        QueryBuilder qb = testSet17.tx().graql().infer(true);
+
+        String queryString = "match $x isa resource val 'partial bad flag'; ($x, resource-owner: $y) isa resource-relation; get;";
+        String queryString2 = "match $x isa resource val 'partial bad flag 2'; ($x, resource-owner: $y) isa resource-relation; get;";
+        String queryString3 = "match $x isa resource val 'bad flag' ; ($x, resource-owner: $y) isa resource-relation; get;";
+        String queryString4 = "match $x isa resource val 'no flag' ; ($x, resource-owner: $y) isa resource-relation; get;";
+        String queryString5 = "match $x isa resource; ($x, resource-owner: $y) isa resource-relation; get;";
+        String queryString6 = "match $x isa resource; $x val contains 'bad flag';($x, resource-owner: $y) isa resource-relation; get;";
+
+        GetQuery query = qb.parse(queryString);
+        GetQuery query2 = qb.parse(queryString2);
+        GetQuery query3 = qb.parse(queryString3);
+        GetQuery query4 = qb.parse(queryString4);
+        GetQuery query5 = qb.parse(queryString5);
+        GetQuery query6 = qb.parse(queryString6);
+
+        List<Answer> answers = query.execute();
+        List<Answer> answers2 = query2.execute();
+        List<Answer> answers3 = query3.execute();
+        List<Answer> answers4 = query4.execute();
+        List<Answer> answers5 = query5.execute();
+        List<Answer> answers6 = query6.execute();
+
+        assertEquals(answers.size(), 2);
+        assertEquals(answers2.size(), 1);
+        assertEquals(answers3.size(), 1);
+        assertEquals(answers4.size(), 1);
+        assertEquals(answers5.size(), answers.size() + answers2.size() + answers3.size() + answers4.size());
+        assertEquals(answers6.size(), answers5.size() - answers4.size());
+    }
+
+    @Test
+    public void resourcesAsRolePlayers_vpPropagationTest() {
+        QueryBuilder qb = testSet17.tx().graql().infer(true);
+
+        String queryString = "match $x isa resource val 'partial bad flag'; ($x, resource-owner: $y) isa another-resource-relation; get;";
+        String queryString2 = "match $x isa resource val 'partial bad flag 2'; ($x, resource-owner: $y) isa another-resource-relation; get;";
+        String queryString3 = "match $x isa resource val 'bad flag' ; ($x, resource-owner: $y) isa another-resource-relation; get;";
+        String queryString4 = "match $x isa resource val 'no flag' ; ($x, resource-owner: $y) isa another-resource-relation; get;";
+        String queryString5 = "match $x isa resource; ($x, resource-owner: $y) isa another-resource-relation; get;";
+        String queryString6 = "match $x isa resource; $x val contains 'bad flag';($x, resource-owner: $y) isa another-resource-relation; get;";
+
+        GetQuery query = qb.parse(queryString);
+        GetQuery query2 = qb.parse(queryString2);
+        GetQuery query3 = qb.parse(queryString3);
+        GetQuery query4 = qb.parse(queryString4);
+        GetQuery query5 = qb.parse(queryString5);
+        GetQuery query6 = qb.parse(queryString6);
+
+        List<Answer> answers = query.execute();
+        List<Answer> answers2 = query2.execute();
+        List<Answer> answers3 = query3.execute();
+        List<Answer> answers4 = query4.execute();
+        List<Answer> answers5 = query5.execute();
+        List<Answer> answers6 = query6.execute();
+
+        assertEquals(answers.size(), 3);
+        assertEquals(answers2.size(), 3);
+        assertEquals(answers3.size(), 3);
+        assertEquals(answers4.size(), 3);
+        assertEquals(answers5.size(), answers.size() + answers2.size() + answers3.size() + answers4.size());
+        assertEquals(answers6.size(), answers5.size() - answers4.size());
     }
 
     @Test //Expected result: Two answers obtained only if the rule query containing sub type is correctly executed.
@@ -709,7 +776,7 @@ public class ReasoningTests {
     public void recursiveRelationWithNeqPredicate(){
         QueryBuilder qb = testSet29.tx().graql().infer(true);
         String baseQueryString = "match " +
-                "(role1: $x, role2: $y) isa relation1;" +
+                "(role1: $x, role2: $y) isa binary-base;" +
                 "$x != $y;";
         String queryString = baseQueryString + "$y has name 'c'; get;";
 
@@ -721,7 +788,7 @@ public class ReasoningTests {
         });
 
         String explicitString = "match " +
-                "(role1: $x, role2: $y) isa relation1;" +
+                "(role1: $x, role2: $y) isa binary-base;" +
                 "$y has name 'c';" +
                 "{$x has name 'a';} or {$x has name 'b';}; get;";
 
@@ -745,8 +812,8 @@ public class ReasoningTests {
     public void recursiveRelationsWithSharedNeqPredicate_relationsAreEquivalent(){
         QueryBuilder qb = testSet29.tx().graql().infer(true);
         String baseQueryString = "match " +
-                "(role1: $x, role2: $y) isa relation1;" +
-                "(role1: $x, role2: $z) isa relation1;" +
+                "(role1: $x, role2: $y) isa binary-base;" +
+                "(role1: $x, role2: $z) isa binary-base;" +
                 "$y != $z;";
 
         List<Answer> baseAnswers = qb.<GetQuery>parse(baseQueryString + "get;").execute();
@@ -787,8 +854,8 @@ public class ReasoningTests {
     public void multipleRecursiveRelationsWithSharedNeqPredicate_neqPredicatePreventsLoops(){
         QueryBuilder qb = testSet29.tx().graql().infer(true);
         String baseQueryString = "match " +
-                "(role1: $x, role2: $y) isa relation1;" +
-                "(role1: $y, role2: $z) isa relation1;" +
+                "(role1: $x, role2: $y) isa binary-base;" +
+                "(role1: $y, role2: $z) isa binary-base;" +
                 "$x != $z;";
 
         List<Answer> baseAnswers = qb.<GetQuery>parse(baseQueryString + "get;").execute();
@@ -833,10 +900,10 @@ public class ReasoningTests {
     public void multipleRecursiveRelationsWithMultipleSharedNeqPredicates_symmetricPattern(){
         QueryBuilder qb = testSet29.tx().graql().infer(true);
         String baseQueryString = "match " +
-                "(role1: $x, role2: $y1) isa relation1;" +
-                "(role1: $x, role2: $z1) isa relation1;" +
-                "(role1: $x, role2: $y2) isa relation1;" +
-                "(role1: $x, role2: $z2) isa relation1;" +
+                "(role1: $x, role2: $y1) isa binary-base;" +
+                "(role1: $x, role2: $z1) isa binary-base;" +
+                "(role1: $x, role2: $y2) isa binary-base;" +
+                "(role1: $x, role2: $z2) isa binary-base;" +
 
                 "$y1 != $z1;" +
                 "$y2 != $z2;";
@@ -871,14 +938,14 @@ public class ReasoningTests {
      *                  y     - != - >  z2
      */
     @Test
-    public void multipleRecursiveRelationsWithMultipleSharedNeqPredicates_(){
+    public void multipleRecursiveRelationsWithMultipleSharedNeqPredicates(){
         QueryBuilder qb = testSet29.tx().graql().infer(true);
         String baseQueryString = "match " +
-                "(role1: $x, role2: $y) isa relation1;" +
+                "(role1: $x, role2: $y) isa binary-base;" +
                 "$x != $z1;" +
                 "$y != $z2;" +
-                "(role1: $x, role2: $z1) isa relation1;" +
-                "(role1: $y, role2: $z2) isa relation1;";
+                "(role1: $x, role2: $z1) isa binary-base;" +
+                "(role1: $y, role2: $z2) isa binary-base;";
 
         List<Answer> baseAnswers = qb.<GetQuery>parse(baseQueryString + "get;").execute();
         assertEquals(baseAnswers.size(), 36);
@@ -897,6 +964,269 @@ public class ReasoningTests {
             assertNotEquals(ans.get("x"), ans.get("z1"));
             assertNotEquals(ans.get("y"), ans.get("z2"));
         });
+    }
+
+    @Test //tests whether shared resources are recognised correctly
+    public void inferrableRelationWithRolePlayersSharingResource(){
+        QueryBuilder qb = testSet29.tx().graql().infer(true);
+        String queryString = "match " +
+                "(role1: $x, role2: $y) isa binary-base;" +
+                "$x has name $n;" +
+                "$y has name $n;" +
+                "get;";
+
+        String queryString2 = "match " +
+                "(role1: $x, role2: $y) isa binary-base;" +
+                "$x has name $n;" +
+                "$y has name $n;" +
+                "$n val 'a';" +
+                "get;";
+
+        String queryString3 = "match " +
+                "(role1: $x, role2: $y) isa binary-base;" +
+                "$x has name 'a';" +
+                "$y has name 'a';" +
+                "get;";
+
+        List<Answer> answers = qb.<GetQuery>parse(queryString).execute();
+        List<Answer> answers2 = qb.<GetQuery>parse(queryString2).execute();
+        List<Answer> answers3 = qb.<GetQuery>parse(queryString3).execute();
+
+        assertEquals(answers.size(), 3);
+        answers.forEach(ans -> {
+            assertEquals(ans.size(), 3);
+            assertEquals(ans.get("x"), ans.get("y"));
+        });
+
+        assertEquals(answers2.size(), 1);
+
+        assertEquals(answers3.size(), 1);
+        answers2.stream()
+                .map(a -> a.project(Sets.newHashSet(var("x"), var("y"))))
+                .forEach(a -> assertTrue(answers3.contains(a)));
+    }
+
+    @Test
+    public void ternaryRelationsRequiryingDifferentMultiunifiers(){
+        QueryBuilder qb = testSet29.tx().graql().infer(true);
+
+        String queryString = "match " +
+                "(role1: $a, role2: $b, role3: $c) isa ternary-base;" +
+                "get;";
+
+        String queryString2 = "match " +
+                "(role: $a, role2: $b, role: $c) isa ternary-base;" +
+                "$b has name 'b';" +
+                "get;";
+
+        String queryString3 = "match " +
+                "($r: $a) isa ternary-base;" +
+                "get;";
+
+        String queryString4 = "match " +
+                "($r: $b) isa ternary-base;" +
+                "$b has name 'b';" +
+                "get;";
+
+        List<Answer> answers = qb.<GetQuery>parse(queryString).execute();
+        assertEquals(answers.size(), 27);
+
+        List<Answer> answers2 = qb.<GetQuery>parse(queryString2).execute();
+        assertEquals(answers2.size(), 9);
+
+        List<Answer> answers3 = qb.<GetQuery>parse(queryString3).execute();
+        assertEquals(answers3.size(), 12);
+
+        List<Answer> answers4 = qb.<GetQuery>parse(queryString4).execute();
+        assertEquals(answers4.size(), 4);
+    }
+
+    @Test
+    public void binaryRelationWithDifferentVariantsOfVariableRoles(){
+        QueryBuilder qb = testSet29.tx().graql().infer(true);
+
+        //9 binary-base instances with {role, role2} = 2 roles for r2 -> 18 answers
+        String queryString = "match " +
+                "(role1: $a, $r2: $b) isa binary-base;" +
+                "get;";
+
+        String equivalentQueryString = "match " +
+                "($r1: $a, $r2: $b) isa binary-base;" +
+                "$r1 label 'role1';" +
+                "get $a, $b, $r2;";
+
+        List<Answer> answers = qb.<GetQuery>parse(queryString).execute();
+        List<Answer> equivalentAnswers = qb.<GetQuery>parse(equivalentQueryString).execute();
+        assertEquals(answers.size(), 18);
+        assertTrue(CollectionUtils.isEqualCollection(answers, equivalentAnswers));
+
+        //9 binary-base instances with {role, role1, role2} = 3 roles for r2 -> 27 answers
+        String queryString2 = "match " +
+                "(role: $a, $r2: $b) isa binary-base;" +
+                "get;";
+
+        String equivalentQueryString2 = "match " +
+                "($r1: $a, $r2: $b) isa binary-base;" +
+                "$r1 label 'role';" +
+                "get $a, $b, $r2;";
+
+        List<Answer> answers2 = qb.<GetQuery>parse(queryString2).execute();
+        List<Answer> equivalentAnswers2 = qb.<GetQuery>parse(equivalentQueryString2).execute();
+        assertEquals(answers2.size(), 27);
+        assertTrue(CollectionUtils.isEqualCollection(answers2, equivalentAnswers2));
+
+        //role variables bound hence should return original 9 instances
+        String queryString3 = "match " +
+                "($r1: $a, $r2: $b) isa binary-base;" +
+                "$r1 label 'role';" +
+                "$r2 label 'role2';" +
+                "get $a, $b;";
+
+        String equivalentQueryString3 = "match " +
+                "(role1: $a, role2: $b) isa binary-base;" +
+                "get;";
+
+        List<Answer> answers3 = qb.<GetQuery>parse(queryString3).execute();
+        List<Answer> equivalentAnswers3 = qb.<GetQuery>parse(equivalentQueryString3).execute();
+        assertEquals(answers3.size(), 9);
+        assertTrue(CollectionUtils.isEqualCollection(answers3, equivalentAnswers3));
+
+        //9 relation instances with 7 possible permutations for each - 63 answers
+        String queryString4 = "match " +
+                "($r1: $a, $r2: $b) isa binary-base;" +
+                "get;";
+
+        List<Answer> answers4 = qb.<GetQuery>parse(queryString4).execute();
+        assertEquals(answers4.size(), 63);
+    }
+
+    @Test
+    public void binaryRelationWithVariableRoles_basicSet(){
+        final int conceptDOF = 2;
+        ternaryNaryRelationWithVariableRoles("binary", conceptDOF);
+    }
+
+    @Test
+    public void binaryRelationWithVariableRoles_extendedSet(){
+        final int conceptDOF = 3;
+        ternaryNaryRelationWithVariableRoles("binary-base", conceptDOF);
+    }
+
+    @Test
+    public void ternaryRelationWithVariableRoles_basicSet(){
+        /*
+        As each vertex is a starting point for {a, b, c} x {a, b c} = 9 relations, starting with a we have:
+
+        (r1: a, r2: a, r3: a), (r1: a, r2: a, r3: b), (r1: a, r2: a, r3: c)
+        (r1: a, r2: b, r3: a), (r1: a, r2: b, r3: b), (r1: a, r2: b, r3: c)
+        (r1: a, r2: c, r3: a), (r1: a, r2: c, r3: b), (r1: a. r2: c, r3: c)
+
+        If we generify two roles each of these produces 7 answers, taking (r1: a, r2: b, r3:c) we have:
+
+        (a, r2: b, r3: c)
+        (a, r: b, r3: c)
+        (a, r2: b, r: c)
+        (a, r3: c, r2: b)
+        (a, r3: c, r: b)
+        (a, r: c, r2: b)
+        (a, r: b, r: c)
+
+        plus
+        (a, r: c, r: b) but this one is counted in (r1: a, r2: c, r3:b)
+        hence 7 answers per single relation.
+        */
+        final int conceptDOF = 2;
+        ternaryNaryRelationWithVariableRoles("ternary", conceptDOF);
+    }
+
+    @Test
+    public void ternaryRelationWithVariableRoles_extendedSet(){
+        final int conceptDOF = 3;
+        ternaryNaryRelationWithVariableRoles("ternary-base", conceptDOF);
+    }
+
+    @Test
+    public void quaternaryRelationWithVariableRoles_basicSet(){
+        final int conceptDOF = 2;
+        ternaryNaryRelationWithVariableRoles("quaternary", conceptDOF);
+    }
+
+    @Test
+    public void quaternaryRelationWithVariableRoles2_extendedSet(){
+        final int conceptDOF = 3;
+        ternaryNaryRelationWithVariableRoles("quaternary-base", conceptDOF);
+    }
+
+    private void ternaryNaryRelationWithVariableRoles(String label, int conceptDOF){
+        GraknTx graph = testSet29.tx();
+        QueryBuilder qb = graph.graql().infer(true);
+        final int arity = (int) graph.getRelationshipType(label).relates().count();
+
+        VarPattern resourcePattern = var("a1").has("name", "a");
+
+        //This query generalises all roles but the first one.
+        VarPattern pattern = var().rel("role1", "a1");
+        for(int i = 2; i <= arity ; i++) pattern = pattern.rel(var("r" + i), "a" + i);
+        pattern = pattern.isa(label);
+
+        List<Answer> answers = qb.match(pattern.and(resourcePattern)).get().execute();
+        assertEquals(answers.size(), answerCombinations(arity-1, conceptDOF));
+
+        //We get extra conceptDOF degrees of freedom by removing the resource constraint on $a1 and the set is symmetric.
+        List<Answer> answers2 = qb.match(pattern).get().execute();
+        assertEquals(answers2.size(), answerCombinations(arity-1, conceptDOF) * conceptDOF);
+
+
+        //The general case of mapping all available Rps
+        VarPattern generalPattern = var();
+        for(int i = 1; i <= arity ; i++) generalPattern = generalPattern.rel(var("r" + i), "a" + i);
+        generalPattern = generalPattern.isa(label);
+
+        List<Answer> answers3 = qb.match(generalPattern).get().execute();
+        assertEquals(answers3.size(), answerCombinations(arity, conceptDOF));
+    }
+
+    /**
+     *Each role player variable can be mapped to either of the conceptDOF concepts and these can repeat.
+     *Each role variable can be mapped to either of RPs roles and only meta roles can repeat.
+
+     *For the case of conceptDOF = 3, roleDOF = 3.
+     *We start by considering the number of meta roles we allow.
+     *If we consider only non-meta roles, considering each relation player we get:
+     *C^3_0 x 3.3 x 3.2 x 3 = 162 combinations
+     *
+     *If we consider single metarole - C^3_1 = 3 possibilities of assigning them:
+     *C^3_1 x 3.3 x 3.2 x 3 = 486 combinations
+     *
+     *Two metaroles - again C^3_2 = 3 possibilities of assigning them:
+     *C^3_2 x 3.3 x 3   x 3 = 243 combinations
+     *
+     *Three metaroles, C^3_3 = 1 possiblity of assignment:
+     *C^3_3 x 3   x 3   x 3 = 81 combinations
+     *
+     *-> Total = 918 different answers
+     *In general, for i allowed meta roles we have:
+     *C^{RP}_i PRODUCT_{j = RP-i}{ (conceptDOF)x(roleDOF-j) } x PRODUCT_i{ conceptDOF} } answers.
+     *
+     *So total number of answers is:
+     *SUM_i{ C^{RP}_i PRODUCT_{j = RP-i}{ (conceptDOF)x(roleDOF-j) } x PRODUCT_i{ conceptDOF} }
+     *
+     * @param RPS number of relation players available
+     * @param conceptDOF number of concept degrees of freedom
+     * @return number of answer combinations
+     */
+    private int answerCombinations(int RPS, int conceptDOF) {
+        int answers = 0;
+        //i is the number of meta roles
+        for (int i = 0; i <= RPS; i++) {
+            int RPProduct = 1;
+            //rps with non-meta roles
+            for (int j = 0; j < RPS - i; j++) RPProduct *= conceptDOF * (RPS - j);
+            //rps with meta roles
+            for (int k = 0; k < i; k++) RPProduct *= conceptDOF;
+            answers += CombinatoricsUtils.binomialCoefficient(RPS, i) * RPProduct;
+        }
+        return answers;
     }
 
     @Test //tests scenario where rules define mutually recursive relation and resource and we query for an attributed type corresponding to the relation
