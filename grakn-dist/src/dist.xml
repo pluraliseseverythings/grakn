@@ -58,12 +58,12 @@
             </includes>
         </fileSet>
 
-        <!-- grakn.properties -->
+        <!-- grakn.original.properties -->
         <fileSet>
             <outputDirectory>conf</outputDirectory>
             <directory>${main.basedir}/conf/main</directory>
             <includes>
-                <include>grakn.properties</include>
+                <include>grakn.original.properties</include>
             </includes>
         </fileSet>
         <!-- and logback.xml (main config) -->

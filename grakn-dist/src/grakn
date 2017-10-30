@@ -174,23 +174,55 @@ storage_wipe_all_data() {
 # ================================================
 # queue helper functions
 # ================================================
+get_redis_slave_settings_file() {
+  echo -n "${GRAKN_HOME}/services/redis/redis.slave.setting"
+}
+
+queue_configure_slave() {
+  # change redis settings
+  echo "master_host:$2:$3" > $1
+  echo "listen_host:$4:$5" >> $1
+}
+
 queue_start_process_as_slave() {
-  local master_host=`cat "${GRAKN_HOME}/services/redis/redis.slave.setting" | grep master_host | awk -F ':' '{print $2}'`
-  local master_port=`cat "${GRAKN_HOME}/services/redis/redis.slave.setting" | grep master_host | awk -F ':' '{print $3}'`
-  local listen_host=`cat "${GRAKN_HOME}/services/redis/redis.slave.setting" | grep listen_host | awk -F ':' '{print $2}'`
-  local listen_port=`cat "${GRAKN_HOME}/services/redis/redis.slave.setting" | grep listen_host | awk -F ':' '{print $3}'`
+  local redis_slave_settings_file=`get_redis_slave_settings_file`
+  local master_host=`cat "$redis_slave_settings_file" | grep master_host | awk -F ':' '{print $2}'`
+  local master_port=`cat "$redis_slave_settings_file" | grep master_host | awk -F ':' '{print $3}'`
+  local listen_host=`cat "$redis_slave_settings_file" | grep listen_host | awk -F ':' '{print $2}'`
+  local listen_port=`cat "$redis_slave_settings_file" | grep listen_host | awk -F ':' '{print $3}'`
+  local localhost="127.0.0.1"
 
-  echo "${GRAKN_HOME}"/services/redis/$queue_bin "${GRAKN_HOME}"/services/redis/redis.conf \
-    --slaveof $master_host $master_port --bind $listen_host --port $listen_port
+  echo "${GRAKN_HOME}"/services/redis/$1 "${GRAKN_HOME}"/services/redis/redis.conf \
+    --bind $listen_host $localhost --port $listen_port \
+    --slaveof $master_host $master_port
 
-  "${GRAKN_HOME}"/services/redis/$queue_bin "${GRAKN_HOME}"/services/redis/redis.conf \
-    --slaveof $master_host $master_port --bind $listen_host --port $listen_port
+  "${GRAKN_HOME}"/services/redis/$1 "${GRAKN_HOME}"/services/redis/redis.conf \
+    --bind $listen_host $localhost --port $listen_port \
+    --slaveof $master_host $master_port
 
   return $?
 }
 
-queue_start_process_default_settings() {
-  "${GRAKN_HOME}"/services/redis/$queue_bin "${GRAKN_HOME}"/services/redis/redis.conf
+get_redis_master_settings_file() {
+  echo -n "${GRAKN_HOME}/services/redis/redis.master.setting"
+}
+
+queue_configure_master() {
+  # change redis settings
+  echo "listen_host:$2:$3" > $1
+}
+
+queue_start_process_as_master() {
+  local redis_master_settings_file=`get_redis_master_settings_file`
+  local listen_host=`cat "$redis_master_settings_file" | grep listen_host | awk -F ':' '{print $2}'`
+  local listen_port=`cat "$redis_master_settings_file" | grep listen_host | awk -F ':' '{print $3}'`
+  local localhost="127.0.0.1"
+
+  echo "${GRAKN_HOME}"/services/redis/$1 "${GRAKN_HOME}"/services/redis/redis.conf \
+    --bind $listen_host $localhost --port $listen_port
+
+  "${GRAKN_HOME}"/services/redis/$1 "${GRAKN_HOME}"/services/redis/redis.conf \
+    --bind $listen_host $localhost --port $listen_port
 
   return $?
 }
@@ -208,14 +240,15 @@ queue_start_process() {
   # otherwise it won't be able to find its data directory located at $GRAKN_HOME/db/redis
   pushd "$GRAKN_HOME" > /dev/null
 
-  local redis_slave_settings_file="${GRAKN_HOME}/services/redis/redis.slave.setting"
+  local redis_master_settings_file=`get_redis_master_settings_file`
+  local redis_slave_settings_file=`get_redis_slave_settings_file`
 
   if [ ! -f $redis_slave_settings_file ]; then
-    echo "master "
-    queue_start_process_default_settings
+    echo "master $queue_bin"
+    queue_start_process_as_master $queue_bin $redis_master_settings_file
   else
     echo "slave of "
-    queue_start_process_as_slave
+    queue_start_process_as_slave $queue_bin $redis_slave_settings_file
   fi
 
   local status=$?
@@ -568,28 +601,39 @@ cli_case_grakn_server_clean() {
 }
 
 cli_case_grakn_cluster_join() {
-  local yaml_jar="${GRAKN_HOME}/services/grakn/yaml-reader-1.0.jar"
-  local yaml_main_class="com.lolski.Main"
-  local yaml_field_cluster_name="\"Grakn Example Cluster\"" # TODO: generate randomly
-  local yaml_field_seeds="$1"
-  local yaml_field_listen_addr="$2"
-  local yaml_field_rpc_addr="$2"
-  local original_conf="services/cassandra/cassandra.yaml"
-  local updated_conf="services/cassandra/cassandra.yaml"
-  local redis_slave_settings_file="services/redis/redis.slave.setting"
-
-  echo java -cp "$yaml_jar" "$yaml_main_class" \
-    "$yaml_field_cluster_name" "$yaml_field_seeds" "$yaml_field_listen_addr" "$yaml_field_rpc_addr" \
-    "$original_conf" "$updated_conf"
+  # change cassandra settings
+  local jar="${GRAKN_HOME}/services/grakn/yaml-reader-1.0.jar"
+  local cassandra_yaml_class="com.lolski.cassandra.CassandraYamlProcessorMain"
+  local cassandra_clustername="\"Grakn Example Cluster\"" # TODO: generate randomly
+  local cassandra_seeds="$1"
+  local cassandra_listen_addr="$2"
+  local cassandra_rpc_addr="$2"
+  local cassandra_original_conf="services/cassandra/cassandra.original.yaml"
+  local cassandra_updated_conf="services/cassandra/cassandra.yaml"
+  echo java -cp "$jar" "$cassandra_yaml_class" \
+    "$cassandra_clustername" "$cassandra_seeds" "$cassandra_listen_addr" "$cassandra_rpc_addr" \
+    "$cassandra_original_conf" "$cassandra_updated_conf"
+  java -cp "$jar" "$cassandra_yaml_class" \
+    "$cassandra_clustername" "$cassandra_seeds" "$cassandra_listen_addr" "$cassandra_rpc_addr" \
+    "$cassandra_original_conf" "$cassandra_updated_conf"
 
   # change redis settings
-  echo "master_host:$1" > $redis_slave_settings_file
-  echo "listen_host:$2" >> $redis_slave_settings_file
+  local redis_master_settings_file=`get_redis_master_settings_file`
+  local redis_slave_settings_file=`get_redis_slave_settings_file`
+  if [[ "$cassandra_seeds" == "$cassandra_listen_addr" ]]; then
+    echo "grakn master node"
+    queue_configure_master $redis_master_settings_file $cassandra_listen_addr 6379
+  else
+    echo "grakn slave node"
+    queue_configure_slave $redis_slave_settings_file $cassandra_seeds 6379 $cassandra_listen_addr 6379
+  fi
 
-  # change cassandra settings
-  java -cp "$yaml_jar" "$yaml_main_class" \
-    "$yaml_field_cluster_name" "$yaml_field_seeds" "$yaml_field_listen_addr" "$yaml_field_rpc_addr" \
-    "$original_conf" "$updated_conf"
+  # change engine settings
+  local grakn_yaml_class="com.lolski.graknengine.GraknPropertiesProcessorMain"
+  local grakn_original_conf="conf/grakn.original.properties"
+  local grakn_updated_conf="conf/grakn.properties"
+  echo java -cp "$jar" "$grakn_yaml_class" "$cassandra_seeds" "$grakn_original_conf" "$grakn_updated_conf"
+  java -cp "$jar" "$grakn_yaml_class" "$cassandra_seeds" "$grakn_original_conf" "$grakn_updated_conf"
 }
 
 cli_case_grakn_cluster_leave() {
