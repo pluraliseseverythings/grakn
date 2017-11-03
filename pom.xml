@@ -44,9 +44,11 @@
         <module>grakn-client</module>
         <module>grakn-test-tools</module>
         <module>grakn-module-sdk</module>
+        <module>yaml-reader</module>
     </modules>
 
     <properties>
+        <snakeyaml.version>1.17</snakeyaml.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.resource.encoding>UTF-8</project.resource.encoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -64,6 +66,7 @@
         <json.version>20160212</json.version>
         <halbuilder-standard.version>4.0.1</halbuilder-standard.version>
         <rest-assured.version>2.7.0</rest-assured.version>
+        <commons-lang.version>3.4</commons-lang.version>
         <commons-math.version>3.4.1</commons-math.version>
         <java-tuples.version>1.2</java-tuples.version>
         <spark.version>1.6.1</spark.version>

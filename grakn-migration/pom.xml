@@ -37,4 +37,11 @@
     <properties>
         <main.basedir>${project.parent.parent.basedir}</main.basedir>
     </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>${snakeyaml.version}</version>
+        </dependency>
+    </dependencies>
 </project>

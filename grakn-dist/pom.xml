@@ -120,6 +120,13 @@
             </exclusions>
         </dependency>
 
+        <!-- Clustering -->
+        <dependency>
+            <groupId>ai.grakn</groupId>
+            <artifactId>yaml-reader</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- Cassandra uses airline for command line parsing -->
         <dependency>
             <groupId>io.airlift</groupId>

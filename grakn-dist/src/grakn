@@ -602,15 +602,15 @@ cli_case_grakn_server_clean() {
 
 cli_case_grakn_cluster_join() {
   # change cassandra settings
-  local jar="${GRAKN_HOME}/services/grakn/yaml-reader-1.0.jar"
-  local cassandra_yaml_class="com.lolski.cassandra.CassandraYamlProcessorMain"
+  local jar="${CLASSPATH}"
+  local cassandra_yaml_class="ai.grakn.yamlreader.cassandra.CassandraYamlProcessorMain"
   local cassandra_clustername="\"Grakn Example Cluster\"" # TODO: generate randomly
   local cassandra_seeds="$1"
   local cassandra_listen_addr="$2"
   local cassandra_rpc_addr="$2"
   local cassandra_original_conf="services/cassandra/cassandra.original.yaml"
   local cassandra_updated_conf="services/cassandra/cassandra.yaml"
-  echo java -cp "$jar" "$cassandra_yaml_class" \
+  echo java -cp "<a long classpath>" "$cassandra_yaml_class" \
     "$cassandra_clustername" "$cassandra_seeds" "$cassandra_listen_addr" "$cassandra_rpc_addr" \
     "$cassandra_original_conf" "$cassandra_updated_conf"
   java -cp "$jar" "$cassandra_yaml_class" \
@@ -629,10 +629,10 @@ cli_case_grakn_cluster_join() {
   fi
 
   # change engine settings
-  local grakn_yaml_class="com.lolski.graknengine.GraknPropertiesProcessorMain"
+  local grakn_yaml_class="ai.grakn.yamlreader.graknengine.GraknPropertiesProcessorMain"
   local grakn_original_conf="conf/grakn.original.properties"
   local grakn_updated_conf="conf/grakn.properties"
-  echo java -cp "$jar" "$grakn_yaml_class" "$cassandra_seeds" "$grakn_original_conf" "$grakn_updated_conf"
+  echo java -cp "<a long classpath>" "$grakn_yaml_class" "$cassandra_seeds" "$grakn_original_conf" "$grakn_updated_conf"
   java -cp "$jar" "$grakn_yaml_class" "$cassandra_seeds" "$grakn_original_conf" "$grakn_updated_conf"
 }
 

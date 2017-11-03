@@ -34,6 +34,12 @@
             <groupId>ai.grakn</groupId>
             <artifactId>grakn-core</artifactId>
             <version>${project.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.yaml</groupId>
+                    <artifactId>snakeyaml</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.sharegov</groupId>
