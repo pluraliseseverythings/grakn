@@ -23,6 +23,7 @@ import ai.grakn.GraknTx;
 import ai.grakn.GraknTxType;
 import ai.grakn.client.Client;
 import ai.grakn.graql.QueryBuilder;
+import ai.grakn.util.CommonUtil;
 import com.google.common.io.Files;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.cli.HelpFormatter;
@@ -103,17 +104,22 @@ public class MigrationCLI {
 
     public static void loadOrPrint(File templateFile, Stream<Map<String, Object>> data, MigrationOptions options){
         String template = fileAsString(templateFile);
-        Migrator migrator = new Migrator(options.getUri(), options.getKeyspace());
+        Migrator migrator = new MigratorBuilder()
+                .setUri(options.getUri())
+                .setMigrationOptions(options)
+                .setKeyspace(options.getKeyspace())
+                .build();
         if(options.isNo()){
             migrator.print(template, data);
         } else {
             printInitMessage(options);
             migrator.getReporter().start(1, TimeUnit.MINUTES);
             try {
-                migrator.load(template, data, options.getRetry(), options.isDebug(), options.getMaxDelay());
-            } catch (Exception e) {
+                migrator.load(template, data);
+            } catch (Throwable e) {
                 // This is to catch migration exceptions and return intelligible output messages
-                System.out.println("Error while loading data: " + e.getMessage());
+                StringBuilder message = CommonUtil.simplifyExceptionMessage(e);
+                System.out.println("ERROR: Exception while loading data (disabling debug mode might skip and continue): " + message.toString());
             } finally {
                 migrator.getReporter().stop();
             }

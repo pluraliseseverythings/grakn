@@ -159,6 +159,8 @@ public enum ErrorMessage {
     //Templating
     TEMPLATE_MISSING_KEY("Key [%s] not present in data: [%s]"),
 
+    UNEXPECTED_RESULT("the concept [%s] could not be found in results"),
+
     //--------------------------------------------- Engine Errors -----------------------------------------------
     ILLEGAL_ARGUMENT_EXCEPTION("Illegal argument exception caused by [%s]"),
     NO_CONCEPT_IN_KEYSPACE("No concept with ID [%s] exists in keyspace [%s]"),
@@ -178,7 +180,7 @@ public enum ErrorMessage {
     INVALID_QUERY_USAGE("Only %s queries are allowed."),
     MISSING_TASK_ID("Could not retrieve id %s"),
     TASK_STATE_RETRIEVAL_FAILURE("Could not get state from storage %s"),
-    ENGINE_UNAVAILABLE("Cannot reach Grakn engine on [%s:%s]"),
+    ENGINE_UNAVAILABLE("Cannot reach Grakn engine on [%s]"),
     AUTHENTICATION_FAILURE("Authentication parameters are incorrect or invalid"),
     CANNOT_DELETE_KEYSPACE("Could not delete keyspace [%s]"),
 

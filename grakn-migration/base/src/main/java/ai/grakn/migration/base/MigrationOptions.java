@@ -20,30 +20,35 @@ package ai.grakn.migration.base;
 
 import ai.grakn.Grakn;
 import ai.grakn.Keyspace;
-import static java.lang.Integer.parseInt;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import javax.annotation.Nullable;
+import ai.grakn.util.SimpleURI;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
+import javax.annotation.Nullable;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
+import static java.lang.Integer.parseInt;
+
 /**
  * Configure the default migration options and access arguments passed by the user
+ *
  * @author alexandraorth
  */
 public class MigrationOptions {
 
     public static final String MAX_DELAY_DEFAULT_VALUE = "1000";
     public static final String RETRY_DEFAULT_VALUE = "5";
+    public static final String LINES_DEFAULT_VALUE = "-1";
     private int numberOptions;
 
     protected final Options options = new Options();
     protected CommandLine command;
 
-    public MigrationOptions(){
+    public MigrationOptions() {
         options.addOption("v", "verbose", false, "Print counts of migrated data.");
         options.addOption("h", "help", false, "Print usage message.");
         options.addOption("k", "keyspace", true, "Grakn graph. Required.");
@@ -51,8 +56,12 @@ public class MigrationOptions {
         options.addOption("m", "maxdelay", true, "Max delay before a request is batched.");
         options.addOption("n", "no", false, "Write to standard out.");
         options.addOption("c", "config", true, "Configuration file.");
-        options.addOption("r", "retry", true, "Number of times to retry sending tasks if engine is not available");
-        options.addOption("d", "debug", false, "Immediately stop and fail migration if an error occurs");
+        options.addOption("r", "retry", true,
+                "Number of times to retry sending tasks if engine is not available");
+        options.addOption("d", "debug", false,
+                "Immediately stop and fail migration if an error occurs");
+        options.addOption("z", "lines", true,
+                "Number of lines to be processed. Used for testing when we want to stop earlier.");
     }
 
     public boolean isVerbose() {
@@ -67,12 +76,12 @@ public class MigrationOptions {
         return command.hasOption("n");
     }
 
-    public boolean isDebug(){
+    public boolean isDebug() {
         return command.hasOption("d");
     }
 
     public Keyspace getKeyspace() {
-        if(!command.hasOption("k")){
+        if (!command.hasOption("k")) {
             throw new IllegalArgumentException("Keyspace missing (-k)");
         }
 
@@ -84,11 +93,11 @@ public class MigrationOptions {
         return command.hasOption("c") ? command.getOptionValue("c") : null;
     }
 
-    public String getUri() {
-        return command.hasOption("u") ? command.getOptionValue("u") : Grakn.DEFAULT_URI;
+    public SimpleURI getUri() {
+        return command.hasOption("u") ? new SimpleURI(command.getOptionValue("u")) : Grakn.DEFAULT_URI;
     }
 
-    public Options getOptions(){
+    public Options getOptions() {
         return options;
     }
 
@@ -97,46 +106,51 @@ public class MigrationOptions {
     }
 
     public String getInput() {
-        if(!command.hasOption("i")){
+        if (!command.hasOption("i")) {
             throw new IllegalArgumentException("Data file missing (-i)");
         }
 
         return resolvePath(command.getOptionValue("i"));
     }
 
-    public boolean hasInput(){
+    public boolean hasInput() {
         return command.hasOption("i");
     }
 
     public String getTemplate() {
-        if(!command.hasOption("t")){
+        if (!command.hasOption("t")) {
             throw new IllegalArgumentException("Template file missing (-t)");
         }
 
         return resolvePath(command.getOptionValue("t"));
     }
 
-    public int getRetry(){
+    public int getRetry() {
         return parseInt(command.getOptionValue("r", RETRY_DEFAULT_VALUE));
     }
 
-    protected void parse(String[] args){
-        try {
-            CommandLineParser parser = new DefaultParser();
-            command = parser.parse(options, args);
-            numberOptions = command.getOptions().length;
-        } catch (ParseException e){
-            throw new IllegalArgumentException(e);
-        }
-    }
 
     public int getMaxDelay() {
         return parseInt(command.getOptionValue("m", MAX_DELAY_DEFAULT_VALUE));
     }
 
-    private String resolvePath(String path){
+    public int getLines() {
+        return parseInt(command.getOptionValue("z", LINES_DEFAULT_VALUE));
+    }
+
+
+    protected void parse(String[] args) {
+        try {
+            CommandLineParser parser = new DefaultParser();
+            command = parser.parse(options, args);
+            numberOptions = command.getOptions().length;
+        } catch (ParseException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+    private String resolvePath(String path) {
         Path givenPath = Paths.get(path);
-        if(givenPath.isAbsolute()){
+        if (givenPath.isAbsolute()) {
             return givenPath.toAbsolutePath().toString();
         }
 

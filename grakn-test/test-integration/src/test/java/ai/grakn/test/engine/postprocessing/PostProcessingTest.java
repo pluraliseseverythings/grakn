@@ -18,19 +18,19 @@
 
 package ai.grakn.test.engine.postprocessing;
 
-import ai.grakn.GraknTx;
 import ai.grakn.GraknSession;
+import ai.grakn.GraknTx;
 import ai.grakn.GraknTxType;
 import ai.grakn.concept.Attribute;
 import ai.grakn.concept.AttributeType;
-import ai.grakn.engine.lock.ProcessWideLockProvider;
 import ai.grakn.engine.postprocessing.PostProcessingTask;
+import ai.grakn.engine.postprocessing.PostProcessor;
 import ai.grakn.engine.tasks.manager.TaskConfiguration;
 import ai.grakn.engine.tasks.manager.TaskState;
 import ai.grakn.engine.tasks.manager.TaskSubmitter;
 import ai.grakn.exception.InvalidKBException;
-import ai.grakn.test.EngineContext;
-import ai.grakn.test.GraknTestSetup;
+import ai.grakn.test.rule.EngineContext;
+import ai.grakn.util.GraknTestUtil;
 import ai.grakn.util.REST;
 import ai.grakn.util.Schema;
 import com.codahale.metrics.MetricRegistry;
@@ -54,6 +54,7 @@ import static org.junit.Assume.assumeTrue;
 
 public class PostProcessingTest {
 
+    private PostProcessor postProcessor;
     private GraknSession session;
 
     @ClassRule
@@ -61,12 +62,13 @@ public class PostProcessingTest {
 
     @BeforeClass
     public static void onlyRunOnTinker(){
-        assumeTrue(GraknTestSetup.usingTinker());
+        assumeTrue(GraknTestUtil.usingTinker());
     }
 
     @Before
     public void setUp() throws Exception {
         session = engine.sessionWithNewKeyspace();
+        postProcessor = PostProcessor.create(engine.config(), engine.getJedisPool(), engine.server().factory(), engine.server().lockProvider(), new MetricRegistry());
     }
 
     @After
@@ -84,7 +86,7 @@ public class PostProcessingTest {
         AttributeType<String> attributeType = graph.putAttributeType(sample, AttributeType.DataType.STRING);
 
         Attribute<String> attribute = attributeType.putAttribute(value);
-        graph.admin().commitNoLogs();
+        graph.admin().commitSubmitNoLogs();
         graph = session.open(GraknTxType.WRITE);
 
         assertEquals(1, attributeType.instances().count());
@@ -116,7 +118,7 @@ public class PostProcessingTest {
         PostProcessingTask task = new PostProcessingTask();
         TaskConfiguration configuration = TaskConfiguration.of(
                 Json.object(
-                        KEYSPACE, graph.getKeyspace().getValue(),
+                        KEYSPACE, graph.keyspace().getValue(),
                         REST.Request.COMMIT_LOG_FIXING, Json.object(
                                 Schema.BaseType.ATTRIBUTE.name(), Json.object(resourceIndex, resourceConcepts)
                         ))
@@ -130,8 +132,8 @@ public class PostProcessingTest {
             public void runTask(TaskState taskState, TaskConfiguration configuration) {
             }
         };
-        task.initialize(null, configuration, taskSubmitter, engine.config(), null, engine.server().factory(),
-                new ProcessWideLockProvider(), new MetricRegistry());
+        task.initialize(configuration, taskSubmitter, engine.config(), engine.server().factory(),
+                new MetricRegistry(), postProcessor);
 
         task.start();
 

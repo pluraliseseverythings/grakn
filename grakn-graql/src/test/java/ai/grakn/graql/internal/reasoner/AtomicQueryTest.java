@@ -24,6 +24,7 @@ import ai.grakn.concept.Concept;
 import ai.grakn.exception.GraqlQueryException;
 import ai.grakn.graql.GetQuery;
 import ai.grakn.graql.QueryBuilder;
+import ai.grakn.graql.Var;
 import ai.grakn.graql.admin.Answer;
 import ai.grakn.graql.admin.Atomic;
 import ai.grakn.graql.admin.Conjunction;
@@ -39,9 +40,9 @@ import ai.grakn.graql.internal.reasoner.query.QueryEquivalence;
 import ai.grakn.graql.internal.reasoner.query.ReasonerAtomicQuery;
 import ai.grakn.graql.internal.reasoner.query.ReasonerQueries;
 import ai.grakn.graql.internal.reasoner.query.ReasonerQueryImpl;
-import ai.grakn.test.GraknTestSetup;
-import ai.grakn.test.SampleKBContext;
+import ai.grakn.test.rule.SampleKBContext;
 import ai.grakn.test.kbs.GeoKB;
+import ai.grakn.util.GraknTestUtil;
 import ai.grakn.util.Schema;
 import com.google.common.base.Equivalence;
 import com.google.common.collect.ImmutableMap;
@@ -52,7 +53,6 @@ import java.util.HashSet;
 import java.util.List;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -72,20 +72,20 @@ import static org.junit.Assume.assumeTrue;
 public class AtomicQueryTest {
 
     @ClassRule
-    public static final SampleKBContext geoKB = SampleKBContext.preLoad(GeoKB.get()).assumeTrue(GraknTestSetup.usingTinker());
+    public static final SampleKBContext geoKB = GeoKB.context();
 
     @ClassRule
-    public static final SampleKBContext unificationTestSet = SampleKBContext.preLoad("unificationTest.gql").assumeTrue(GraknTestSetup.usingTinker());
+    public static final SampleKBContext unificationTestSet = SampleKBContext.load("unificationTest.gql");
 
     @ClassRule
-    public static final SampleKBContext unificationWithTypesSet = SampleKBContext.preLoad("unificationWithTypesTest.gql").assumeTrue(GraknTestSetup.usingTinker());
+    public static final SampleKBContext unificationWithTypesSet = SampleKBContext.load("unificationWithTypesTest.gql");
 
     @Rule
     public final ExpectedException exception = ExpectedException.none();
 
     @BeforeClass
     public static void setUpClass() {
-        assumeTrue(GraknTestSetup.usingTinker());
+        assumeTrue(GraknTestUtil.usingTinker());
     }
 
     @Test
@@ -206,6 +206,14 @@ public class AtomicQueryTest {
         assertTrue(unifier2.isEmpty());
         assertTrue(unifier3.isEmpty());
     }
+
+    /**
+     * ##################################
+     *
+     *     Unification Tests
+     *
+     * ##################################
+     */
 
     @Test //only a single unifier exists
     public void testExactUnification_BinaryRelationWithTypes_SomeVarsHaveTypes_UnifierMatchesTypes(){
@@ -470,7 +478,7 @@ public class AtomicQueryTest {
     }
 
     @Test
-    public void testExactUnification_TernaryRelation_RepeatingRelationPlayers_withMetaRoles(){
+    public void testExactUnification_TernaryRelationWithTypes_RepeatingRelationPlayers_withMetaRoles(){
         GraknTx graph =  unificationWithTypesSet.tx();
         String patternString = "{$x1 isa threeRoleEntity;$x3 isa threeRoleEntity3;($x1, $x2, $x3) isa ternary;}";
         String patternString2 = "{$y3 isa threeRoleEntity3;$y1 isa threeRoleEntity;($y2, $y3, $y1) isa ternary;}";
@@ -544,10 +552,10 @@ public class AtomicQueryTest {
     @Test // subSubThreeRoleEntity sub subThreeRoleEntity sub threeRoleEntity3
     public void testExactUnification_TernaryRelationWithTypes_AllVarsHaveTypes_UnifierMatchesTypes_TypeHierarchyInvolved(){
         GraknTx graph =  unificationWithTypesSet.tx();
-        String parentString = "{$x1 isa threeRoleEntity3;$x2 isa subThreeRoleEntity; $x3 isa subSubThreeRoleEntity;($x1, $x2, $x3) isa ternary;}";
+        String parentString = "{$x1 isa threeRoleEntity;$x2 isa subThreeRoleEntity; $x3 isa subSubThreeRoleEntity;($x1, $x2, $x3) isa ternary;}";
 
-        String childString = "{$y3 isa subSubThreeRoleEntity;$y2 isa subThreeRoleEntity;$y1 isa threeRoleEntity3;($y2, $y3, $y1) isa ternary;}";
-        String childString2 = "{$y3 isa subSubThreeRoleEntity;$y2 isa subThreeRoleEntity;$y1 isa threeRoleEntity3;(role2: $y2, role3: $y3, role1: $y1) isa ternary;}";
+        String childString = "{$y1 isa threeRoleEntity;$y2 isa subThreeRoleEntity;$y3 isa subSubThreeRoleEntity;($y2, $y3, $y1) isa ternary;}";
+        String childString2 = "{$y1 isa threeRoleEntity;$y2 isa subThreeRoleEntity;$y3 isa subSubThreeRoleEntity;(role2: $y2, role3: $y3, role1: $y1) isa ternary;}";
         Conjunction<VarPatternAdmin> pattern = conjunction(parentString, graph);
         Conjunction<VarPatternAdmin> pattern2 = conjunction(childString, graph);
         Conjunction<VarPatternAdmin> pattern3 = conjunction(childString2, graph);
@@ -588,9 +596,42 @@ public class AtomicQueryTest {
     }
 
     @Test
-    public void testExactUnification_BinaryRelationWithRoleHierarchyAndTypes_ParentWithBaseRoles(){
+    public void testUnification_ResourcesWithTypes(){
         GraknTx graph = unificationTestSet.tx();
-        //contains only base types which cannot play any sub roles - no unifier should exist
+        String parentQuery = "{$x has res1 $r; $x isa baseRoleEntity;}";
+
+        String childQuery = "{$r has res1 $x; $r isa subRoleEntity;}";
+        String childQuery2 = "{$x1 has res1 $x; $x1 isa subSubRoleEntity;}";
+        String baseQuery = "{$r has res1 $x; $r isa entity;}";
+
+        queryUnification(parentQuery, childQuery, false, false, true, graph);
+        queryUnification(parentQuery, childQuery2, false, false, true, graph);
+        queryUnification(parentQuery, baseQuery, true, true, true, graph);
+    }
+
+    @Test
+    public void testExactUnification_BinaryRelationWithRoleAndTypeHierarchy_MetaTypeParent(){
+        GraknTx graph = unificationTestSet.tx();
+        String parentRelation = "{(role1: $x, role2: $y); $x isa entity; $y isa entity;}";
+
+        String specialisedRelation = "{(subRole1: $u, anotherSubRole2: $v); $u isa baseRoleEntity; $v isa baseRoleEntity;}";
+        String specialisedRelation2 = "{(subRole1: $y, anotherSubRole2: $x); $y isa baseRoleEntity; $x isa baseRoleEntity;}";
+        String specialisedRelation3 = "{(subRole1: $u, anotherSubRole2: $v); $u isa subRoleEntity; $v isa subRoleEntity;}";
+        String specialisedRelation4 = "{(subRole1: $y, anotherSubRole2: $x); $y isa subRoleEntity; $x isa subRoleEntity;}";
+        String specialisedRelation5 = "{(subSubRole1: $u, subSubRole2: $v); $u isa subSubRoleEntity; $v isa subSubRoleEntity;}";
+        String specialisedRelation6 = "{(subSubRole1: $y, subSubRole2: $x); $y isa subSubRoleEntity; $x isa subSubRoleEntity;}";
+
+        queryUnification(parentRelation, specialisedRelation, false, false, true, graph);
+        queryUnification(parentRelation, specialisedRelation2, false, false, true, graph);
+        queryUnification(parentRelation, specialisedRelation3, false, false, true, graph);
+        queryUnification(parentRelation, specialisedRelation4, false, false, true, graph);
+        queryUnification(parentRelation, specialisedRelation5, false, false, true, graph);
+        queryUnification(parentRelation, specialisedRelation6, false, false, true, graph);
+    }
+
+    @Test
+    public void testExactUnification_BinaryRelationWithRoleAndTypeHierarchy_BaseRoleParent(){
+        GraknTx graph = unificationTestSet.tx();
         String baseParentRelation = "{(role1: $x, role2: $y); $x isa baseRoleEntity; $y isa baseRoleEntity;}";
         String parentRelation = "{(role1: $x, role2: $y); $x isa subSubRoleEntity; $y isa subSubRoleEntity;}";
 
@@ -599,52 +640,40 @@ public class AtomicQueryTest {
         String specialisedRelation3 = "{(subSubRole1: $u, subSubRole2: $v); $u isa subSubRoleEntity; $v isa subSubRoleEntity;}";
         String specialisedRelation4 = "{(subSubRole1: $y, subSubRole2: $x); $y isa subSubRoleEntity; $x isa subSubRoleEntity;}";
 
-        nonExistentUnifier(baseParentRelation, specialisedRelation, graph);
-        nonExistentUnifier(baseParentRelation, specialisedRelation2, graph);
-        nonExistentUnifier(baseParentRelation, specialisedRelation3, graph);
-        nonExistentUnifier(baseParentRelation, specialisedRelation4, graph);
+        queryUnification(baseParentRelation, specialisedRelation, false, false, true, graph);
+        queryUnification(baseParentRelation, specialisedRelation2, false, false, true, graph);
+        queryUnification(baseParentRelation, specialisedRelation3, false, false, true, graph);
+        queryUnification(baseParentRelation, specialisedRelation4, false, false, true, graph);
 
-        queryUnification(parentRelation, specialisedRelation, false, false, graph);
-        queryUnification(parentRelation, specialisedRelation2, false, false, graph);
-        queryUnification(parentRelation, specialisedRelation3, false, false, graph);
-        queryUnification(parentRelation, specialisedRelation4, false, false, graph);
+        queryUnification(parentRelation, specialisedRelation, false, false, false, graph);
+        queryUnification(parentRelation, specialisedRelation2, false, false, false, graph);
+        queryUnification(parentRelation, specialisedRelation3, false, false, false, graph);
+        queryUnification(parentRelation, specialisedRelation4, false, false, false, graph);
     }
 
     @Test
-    public void testExactUnification_BinaryRelationWithRoleAndTypeHierarchy_ParentWithBaseRoles(){
+    public void testExactUnification_BinaryRelationWithRoleAndTypeHierarchy_BaseRoleParent_middleTypes(){
         GraknTx graph = unificationTestSet.tx();
-        String parentRelation = "{(role1: $x, role2: $y); $x isa subRoleEntity; $y isa subSubRoleEntity;}";
+        String parentRelation = "{(role1: $x, role2: $y); $x isa subRoleEntity; $y isa subRoleEntity;}";
 
         String specialisedRelation = "{(subRole1: $u, anotherSubRole2: $v); $u isa subRoleEntity; $v isa subSubRoleEntity;}";
         String specialisedRelation2 = "{(subRole1: $y, anotherSubRole2: $x); $y isa subRoleEntity; $x isa subSubRoleEntity;}";
         String specialisedRelation3 = "{(subSubRole1: $u, subSubRole2: $v); $u isa subSubRoleEntity; $v isa subSubRoleEntity;}";
         String specialisedRelation4 = "{(subSubRole1: $y, subSubRole2: $x); $y isa subSubRoleEntity; $x isa subSubRoleEntity;}";
 
-        queryUnification(parentRelation, specialisedRelation, false, false, graph);
-        queryUnification(parentRelation, specialisedRelation2, false, false, graph);
-        nonExistentUnifier(parentRelation, specialisedRelation3, graph);
-        nonExistentUnifier(parentRelation, specialisedRelation4, graph);
+        queryUnification(parentRelation, specialisedRelation, false, false, true, graph);
+        queryUnification(parentRelation, specialisedRelation2, false, false, true, graph);
+        queryUnification(parentRelation, specialisedRelation3, false, false, true, graph);
+        queryUnification(parentRelation, specialisedRelation4, false, false, true, graph);
     }
 
-    //TODO this needs subtype checking in results
-    @Ignore
-    @Test
-    public void testExactUnification_BinaryRelationWithRoleAndTypeHierarchy_ParentWithBaseRoles_differentTypeHierarchiesInAnswer(){
-        GraknTx graph = unificationTestSet.tx();
-        String parentRelation = "{(role1: $x, role2: $y); $x isa subSubRoleEntity; $y isa subSubRoleEntity;}";
-
-        String specialisedRelation = "{(subRole1: $u, anotherSubRole2: $v); $u isa subRoleEntity; $v isa subRoleEntity;}";
-        String specialisedRelation2 = "{(subRole1: $u, anotherSubRole2: $v); $u isa subRoleEntity; $v isa subSubRoleEntity;}";
-        String specialisedRelation3 = "{(subRole1: $y, anotherSubRole2: $x); $y isa subRoleEntity; $x isa subSubRoleEntity;}";
-        String specialisedRelation4 = "{(subSubRole1: $u, subSubRole2: $v); $u isa subSubRoleEntity; $v isa subSubRoleEntity;}";
-        String specialisedRelation5 = "{(subSubRole1: $y, subSubRole2: $x); $y isa subSubRoleEntity; $x isa subSubRoleEntity;}";
-
-        queryUnification(parentRelation, specialisedRelation, false, false, graph);
-        queryUnification(parentRelation, specialisedRelation2, false, false, graph);
-        queryUnification(parentRelation, specialisedRelation3, false, false, graph);
-        queryUnification(parentRelation, specialisedRelation4, false, false, graph);
-        queryUnification(parentRelation, specialisedRelation5, false, false, graph);
-    }
+    /**
+     * ##################################
+     *
+     *     Alpha Equivalence Tests
+     *
+     * ##################################
+     */
 
     @Test
     public void testAlphaEquivalence_DifferentIsaVariants(){
@@ -1252,31 +1281,14 @@ public class AtomicQueryTest {
     }
 
     /**
-     * checks that the child query is not unifiable with parent - a unifier does not exist
-     * @param parentQuery parent query
-     * @param childQuery child query
-     */
-    private void nonExistentUnifier(ReasonerAtomicQuery parentQuery, ReasonerAtomicQuery childQuery){
-        Atom childAtom = childQuery.getAtom();
-        Atom parentAtom = parentQuery.getAtom();
-        assertTrue(childAtom.getMultiUnifier(parentAtom, UnifierType.EXACT).isEmpty());
-    }
-
-    private void nonExistentUnifier(String parentPatternString, String childPatternString, GraknTx graph){
-        nonExistentUnifier(
-                ReasonerQueries.atomic(conjunction(parentPatternString, graph), graph),
-                ReasonerQueries.atomic(conjunction(childPatternString, graph), graph)
-        );
-    }
-    
-    /**
      * checks the correctness and uniqueness of an exact unifier required to unify child query with parent
      * @param parentQuery parent query
      * @param childQuery child query
      * @param checkInverse flag specifying whether the inverse equality u^{-1}=u(parent, child) of the unifier u(child, parent) should be checked
+     * @param ignoreTypes flag specifying whether the types should be disregarded and only role players checked for containment
      * @param checkEquality if true the parent and child answers will be checked for equality, otherwise they are checked for containment of child answers in parent
      */
-    private void queryUnification(ReasonerAtomicQuery parentQuery, ReasonerAtomicQuery childQuery, boolean checkInverse, boolean checkEquality){
+    private void queryUnification(ReasonerAtomicQuery parentQuery, ReasonerAtomicQuery childQuery, boolean checkInverse, boolean checkEquality, boolean ignoreTypes){
         Unifier unifier = childQuery.getMultiUnifier(parentQuery).getUnifier();
 
         List<Answer> childAnswers = childQuery.getQuery().execute();
@@ -1296,22 +1308,45 @@ public class AtomicQueryTest {
         assertTrue(!unifiedAnswers.isEmpty());
         assertTrue(!parentAnswers.isEmpty());
 
+        Set<Var> parentNonTypeVariables = Sets.difference(parentQuery.getAtom().getVarNames(), Sets.newHashSet(parentQuery.getAtom().getPredicateVariable()));
         if (!checkEquality){
-            assertTrue(parentAnswers.containsAll(unifiedAnswers));
+            if(!ignoreTypes){
+                assertTrue(parentAnswers.containsAll(unifiedAnswers));
+            } else {
+                List<Answer> projectedParentAnswers = parentAnswers.stream().map(ans -> ans.project(parentNonTypeVariables)).collect(Collectors.toList());
+                List<Answer> projectedUnified = unifiedAnswers.stream().map(ans -> ans.project(parentNonTypeVariables)).collect(Collectors.toList());
+                assertTrue(projectedParentAnswers.containsAll(projectedUnified));
+            }
+
         } else {
-            assertCollectionsEqual(parentAnswers, unifiedAnswers);
             Unifier inverse = unifier.inverse();
-            List<Answer> parentToChild = parentAnswers.stream().map(a -> a.unify(inverse)).collect(Collectors.toList());
-            assertCollectionsEqual(parentToChild, childAnswers);
+            if(!ignoreTypes) {
+                assertCollectionsEqual(parentAnswers, unifiedAnswers);
+                List<Answer> parentToChild = parentAnswers.stream().map(a -> a.unify(inverse)).collect(Collectors.toList());
+                assertCollectionsEqual(parentToChild, childAnswers);
+            } else {
+                Set<Var> childNonTypeVariables = Sets.difference(childQuery.getAtom().getVarNames(), Sets.newHashSet(childQuery.getAtom().getPredicateVariable()));
+                List<Answer> projectedParentAnswers = parentAnswers.stream().map(ans -> ans.project(parentNonTypeVariables)).collect(Collectors.toList());
+                List<Answer> projectedUnified = unifiedAnswers.stream().map(ans -> ans.project(parentNonTypeVariables)).collect(Collectors.toList());
+                List<Answer> projectedChild = childAnswers.stream().map(ans -> ans.project(childNonTypeVariables)).collect(Collectors.toList());
+
+                assertCollectionsEqual(projectedParentAnswers, projectedUnified);
+                List<Answer> projectedParentToChild = projectedParentAnswers.stream()
+                        .map(a -> a.unify(inverse))
+                        .map(ans -> ans.project(childNonTypeVariables))
+                        .collect(Collectors.toList());
+                assertCollectionsEqual(projectedParentToChild, projectedChild);
+            }
         }
     }
 
-    private void queryUnification(String parentPatternString, String childPatternString, boolean checkInverse, boolean checkEquality, GraknTx graph){
+    private void queryUnification(String parentPatternString, String childPatternString, boolean checkInverse, boolean checkEquality, boolean ignoreTypes, GraknTx graph){
         queryUnification(
                 ReasonerQueries.atomic(conjunction(parentPatternString, graph), graph),
                 ReasonerQueries.atomic(conjunction(childPatternString, graph), graph),
                 checkInverse,
-                checkEquality);
+                checkEquality,
+                ignoreTypes);
     }
 
     private Conjunction<VarPatternAdmin> conjunction(PatternAdmin pattern){

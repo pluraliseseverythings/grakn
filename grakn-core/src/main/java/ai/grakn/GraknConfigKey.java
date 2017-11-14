@@ -47,11 +47,7 @@ public abstract class GraknConfigKey<T> {
 
     public static final GraknConfigKey<String> VERSION = key("grakn.version");
 
-    // The JWT key is optional and does not have a default value
-    public static final GraknConfigKey<Optional<String>> JWT_SECRET = key("JWT.secret", Optional::of);
-    public static final GraknConfigKey<Boolean> PASSWORD_PROTECTED = key("password.protected", BOOL);
     public static final GraknConfigKey<Integer> WEBSERVER_THREADS = key("webserver.threads", INT);
-    public static final GraknConfigKey<String> ADMIN_PASSWORD = key("admin.password");
 
     public static final GraknConfigKey<String> SERVER_HOST_NAME = key("server.host");
     public static final GraknConfigKey<Integer> SERVER_PORT = key("server.port", INT);
@@ -71,6 +67,8 @@ public abstract class GraknConfigKey<T> {
     public static final GraknConfigKey<Integer> QUEUE_CONSUMERS = key("queue.consumers", INT);
 
     public static final GraknConfigKey<Path> STATIC_FILES_PATH = key("server.static-file-dir", required(Paths::get));
+
+    public static final GraknConfigKey<Integer> SESSION_CACHE_TIMEOUT_MS = key("knowledge-base.schema-cache-timeout-ms", INT);
 
     // Delay for the post processing task in milliseconds
     public static final GraknConfigKey<Integer> POST_PROCESSING_TASK_DELAY = key("tasks.postprocessing.delay", INT);

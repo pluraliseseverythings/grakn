@@ -20,17 +20,18 @@ package ai.grakn.graql.internal.reasoner.atom.binary;
 import ai.grakn.GraknTx;
 import ai.grakn.concept.Label;
 import ai.grakn.concept.SchemaConcept;
+import ai.grakn.concept.Type;
 import ai.grakn.exception.GraqlQueryException;
 import ai.grakn.graql.Graql;
+import ai.grakn.graql.Pattern;
 import ai.grakn.graql.Var;
 import ai.grakn.graql.VarPattern;
 import ai.grakn.graql.admin.Atomic;
-import ai.grakn.graql.admin.PatternAdmin;
 import ai.grakn.graql.admin.ReasonerQuery;
 import ai.grakn.graql.admin.Unifier;
 import ai.grakn.graql.admin.VarPatternAdmin;
 import ai.grakn.graql.internal.pattern.Patterns;
-import ai.grakn.graql.internal.pattern.property.HasResourceProperty;
+import ai.grakn.graql.internal.pattern.property.HasAttributeProperty;
 import ai.grakn.graql.internal.reasoner.ResolutionPlan;
 import ai.grakn.graql.internal.reasoner.UnifierImpl;
 import ai.grakn.graql.internal.reasoner.atom.Atom;
@@ -59,7 +60,7 @@ import static ai.grakn.graql.internal.reasoner.utils.ReasonerUtils.areDisjointTy
 /**
  *
  * <p>
- * Atom implementation defining a resource atom corresponding to a {@link HasResourceProperty}.
+ * Atom implementation defining a resource atom corresponding to a {@link HasAttributeProperty}.
  * The resource structure is the following:
  *
  * has($varName, $predicateVariable = resource variable), type($predicateVariable)
@@ -77,7 +78,7 @@ public class ResourceAtom extends Binary{
     private final Var relationVariable;
     private final ImmutableSet<ValuePredicate> multiPredicate;
 
-    public ResourceAtom(VarPatternAdmin pattern, Var attributeVar, Var relationVariable, @Nullable IdPredicate idPred, Set<ValuePredicate> ps, ReasonerQuery par){
+    public ResourceAtom(VarPattern pattern, Var attributeVar, Var relationVariable, @Nullable IdPredicate idPred, Set<ValuePredicate> ps, ReasonerQuery par){
         super(pattern, attributeVar, idPred, par);
         this.relationVariable = relationVariable;
         this.multiPredicate = ImmutableSet.copyOf(ps);
@@ -206,12 +207,12 @@ public class ResourceAtom extends Binary{
     public Var getRelationVariable(){ return relationVariable;}
 
     @Override
-    public PatternAdmin getCombinedPattern() {
+    public Pattern getCombinedPattern() {
         Set<VarPatternAdmin> vars = getMultiPredicate().stream()
                 .map(Atomic::getPattern)
-                .map(PatternAdmin::asVarPattern)
+                .map(VarPattern::admin)
                 .collect(Collectors.toSet());
-        vars.add(super.getPattern().asVarPattern());
+        vars.add(super.getPattern().admin());
         return Patterns.conjunction(vars);
     }
 
@@ -224,11 +225,9 @@ public class ResourceAtom extends Binary{
         ReasonerQueryImpl childQuery = (ReasonerQueryImpl) childAtom.getParentQuery();
 
         //check type bindings compatiblity
-        TypeAtom parentTypeConstraint = this.getTypeConstraints().findFirst().orElse(null);
-        TypeAtom childTypeConstraint = childAtom.getTypeConstraints().findFirst().orElse(null);
+        Type parentType = this.getParentQuery().getVarTypeMap().get(this.getVarName());
+        Type childType = childQuery.getVarTypeMap().get(childAtom.getVarName());
 
-        SchemaConcept parentType = parentTypeConstraint != null? parentTypeConstraint.getSchemaConcept() : null;
-        SchemaConcept childType = childTypeConstraint != null? childTypeConstraint.getSchemaConcept() : null;
         if (parentType != null && childType != null && areDisjointTypes(parentType, childType)
                 || !childQuery.isTypeRoleCompatible(ruleAtom.getVarName(), parentType)) return false;
 
@@ -274,7 +273,7 @@ public class ResourceAtom extends Binary{
     public Set<Var> getVarNames() {
         Set<Var> varNames = super.getVarNames();
         multiPredicate.stream().flatMap(p -> p.getVarNames().stream()).forEach(varNames::add);
-        if (relationVariable.isUserDefinedName()) varNames.add(relationVariable);
+        if (getRelationVariable().isUserDefinedName()) varNames.add(relationVariable);
         return varNames;
     }
 
@@ -291,11 +290,10 @@ public class ResourceAtom extends Binary{
             return errors;
         }
 
-        SchemaConcept ownerType = getParentQuery().getVarTypeMap().get(getVarName());
+        Type ownerType = getParentQuery().getVarTypeMap().get(getVarName());
 
         if (ownerType != null
-                && ownerType.isType()
-                && ownerType.asType().attributes().noneMatch(rt -> rt.equals(type.asAttributeType()))){
+                && ownerType.attributes().noneMatch(rt -> rt.equals(type.asAttributeType()))){
             errors.add(ErrorMessage.VALIDATION_RULE_RESOURCE_OWNER_CANNOT_HAVE_RESOURCE.getMessage(type.getLabel(), ownerType.getLabel()));
         }
         return errors;
@@ -361,14 +359,6 @@ public class ResourceAtom extends Binary{
     }
 
     @Override
-    public Atom rewriteToUserDefined(Atom parentAtom){
-        Var attributeVariable = getPredicateVariable();
-        Var relationVariable = getRelationVariable().asUserDefined();
-        VarPattern newVar = getVarName().has(getSchemaConcept().getLabel(), attributeVariable, relationVariable);
-        return new ResourceAtom(newVar.admin(), attributeVariable, relationVariable, getTypePredicate(), getMultiPredicate(), getParentQuery());
-    }
-
-    @Override
     public Unifier getUnifier(Atom parentAtom) {
         if (!(parentAtom instanceof ResourceAtom)){
             return new UnifierImpl(ImmutableMap.of(this.getPredicateVariable(), parentAtom.getVarName()));
@@ -397,6 +387,36 @@ public class ResourceAtom extends Binary{
                 .filter(t -> t.getVarName().equals(getVarName()))
                 .filter(t -> Objects.nonNull(t.getSchemaConcept()))
                 .collect(Collectors.toSet());
+    }
+
+    /**
+     * rewrites the atom to one with relation variable
+     * @param parentAtom parent atom that triggers rewrite
+     * @return rewritten atom
+     */
+    private ResourceAtom rewriteWithRelationVariable(Atom parentAtom){
+        if (!parentAtom.isResource() || !((ResourceAtom) parentAtom).getRelationVariable().isUserDefinedName()) return this;
+        return rewriteWithRelationVariable();
+    }
+
+    @Override
+    public ResourceAtom rewriteWithRelationVariable(){
+        Var attributeVariable = getPredicateVariable();
+        Var relationVariable = getRelationVariable().asUserDefined();
+        VarPattern newVar = getVarName().has(getSchemaConcept().getLabel(), attributeVariable, relationVariable);
+        return new ResourceAtom(newVar.admin(), attributeVariable, relationVariable, getTypePredicate(), getMultiPredicate(), getParentQuery());
+    }
+
+    @Override
+    public Atom rewriteWithTypeVariable() {
+        return new ResourceAtom(getPattern(), getPredicateVariable().asUserDefined(), getRelationVariable(), getTypePredicate(), getMultiPredicate(), getParentQuery());
+    }
+
+    @Override
+    public Atom rewriteToUserDefined(Atom parentAtom){
+        return this
+                .rewriteWithRelationVariable(parentAtom)
+                .rewriteWithTypeVariable(parentAtom);
     }
 
 }

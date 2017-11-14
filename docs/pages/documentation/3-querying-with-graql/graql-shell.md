@@ -29,12 +29,9 @@ You can optionally pass arguments when starting the Graql shell, as follows:
 | `--file <arg>`      | `-f`     | A path to a file containg a query to execute.    | The REPL does not open. <br/> The resulting knowledge base is automatically committed. |
 | `--help`      | `-h`     | Print usage message.                             | |
 | `--keyspace <arg>`  | `-k`     | The keyspace of the knowledge base.                 | |
-| `--materialise` | `-m`   | Materialise inferred results.                    | Materialisation is not enabled by default at present, although as Grakn develops, we expect that to change.|
 | `--infer`     | `-n`     | Perform inference on results.                    | Reasoning is not enabled by default at present, although as Grakn develops, we expect that to change.|
 | `--output <arg>`  | `-o` | Output format for results                        | | 
-| `--pass <arg>`    | `-p`     | The password to sign in.                     | |
 | `--uri <arg>`   | `-r`|  The URI to connect to engine.                            | |
-| `--user <arg>`  | `-u`     | Username to sign in.                    | |
 | `--version`     | `-v`     | Print version                                    | |
 
 
