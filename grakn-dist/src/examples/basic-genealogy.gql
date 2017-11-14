@@ -8,7 +8,6 @@ person sub entity
 	plays spouse1
 	plays spouse2
 	plays sibling
-	plays cousin
 
 	has identifier
 	has firstname
